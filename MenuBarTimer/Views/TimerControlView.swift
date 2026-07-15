@@ -12,8 +12,12 @@ struct TimerControlView: View {
     var body: some View {
         VStack(spacing: 24) {
             ZStack {
-                DonutProgressView(progress: timerModel.progress, lineWidth: 14)
-                    .frame(width: 180, height: 180)
+                DonutProgressView(
+                    progress: timerModel.progress,
+                    lineWidth: 14,
+                    onProgressChange: { timerModel.setProgress($0) }
+                )
+                .frame(width: 180, height: 180)
 
                 VStack(spacing: 4) {
                     Text(displayTime)
@@ -22,8 +26,20 @@ struct TimerControlView: View {
                     Text(statusText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    if timerModel.canUndoAdjustment {
+                        Button(action: { timerModel.undoAdjustment() }) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .accessibilityLabel("Undo timer adjustment")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Undo timer adjustment")
+                        .transition(.opacity)
+                    }
                 }
             }
+            .animation(.easeInOut(duration: 0.15), value: timerModel.canUndoAdjustment)
 
             HStack(spacing: 14) {
                 Button(action: { timerModel.primaryButtonTapped() }) {

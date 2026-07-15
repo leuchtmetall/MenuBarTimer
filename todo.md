@@ -1,5 +1,4 @@
 ToDo:
-- Drag timer (with undo)
 - notification when done
 - count up timer
 - timer groups
