@@ -29,6 +29,25 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerModelTests")
     }
 
+    @Test func timerGroupOnlyRunsOneTimerAtATime() {
+        let defaults = UserDefaults(suiteName: "TimerGroupTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupTests")
+        let first = GroupTimer(name: "Work", seconds: 60)
+        let second = GroupTimer(name: "Break", seconds: 30, type: .countUp)
+        let group = TimerGroup(name: "Focus", timers: [first, second])
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+
+        model.start(first)
+        #expect(model.timers[0].state == .running)
+        #expect(model.timers[1].state != .running)
+
+        model.start(second)
+        #expect(model.timers[0].state == .paused)
+        #expect(model.timers[1].state == .running)
+
+        defaults.removePersistentDomain(forName: "TimerGroupTests")
+    }
+
     @Test func stopwatchCountsUpAndResets() {
         let defaults = UserDefaults(suiteName: "StopwatchTests")!
         defaults.removePersistentDomain(forName: "StopwatchTests")

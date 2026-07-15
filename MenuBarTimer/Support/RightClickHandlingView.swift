@@ -23,7 +23,6 @@ final class RightClickHandlerView: NSView {
     var onRightMouseDown: (() -> Void)?
 
     override func rightMouseDown(with event: NSEvent) {
-        statusBarButton?.isHighlighted = true
         if let onRightMouseDown {
             onRightMouseDown()
         } else {
@@ -32,14 +31,7 @@ final class RightClickHandlerView: NSView {
     }
 
     override func rightMouseUp(with event: NSEvent) {
-        statusBarButton?.isHighlighted = false
         super.rightMouseUp(with: event)
     }
 
-    /// The status item's real button, which this view is added as a subview of.
-    /// Toggling its `isHighlighted` state reproduces the same highlight macOS shows
-    /// for an ordinary (left) click.
-    private var statusBarButton: NSButton? {
-        superview as? NSButton
-    }
 }

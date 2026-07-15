@@ -19,6 +19,7 @@ final class PresetsStore: ObservableObject {
 
     private static let presetsKey = "presets"
     private static let selectedPresetKey = "selectedPresetID"
+    static let selectedKindKey = "selectedTimerKind"
 
     /// Index into `defaultPresets` used as the selection on a fresh install.
     private static let defaultSelectedIndex = 3
@@ -36,7 +37,10 @@ final class PresetsStore: ObservableObject {
             presets = Self.defaultPresets
         }
 
-        if let idString = UserDefaults.standard.string(forKey: Self.selectedPresetKey),
+        let selectedKind = UserDefaults.standard.string(forKey: Self.selectedKindKey)
+        if selectedKind == "group" {
+            selectedPresetID = nil
+        } else if let idString = UserDefaults.standard.string(forKey: Self.selectedPresetKey),
            let uuid = UUID(uuidString: idString),
            presets.contains(where: { $0.id == uuid }) {
             selectedPresetID = uuid
@@ -45,6 +49,7 @@ final class PresetsStore: ObservableObject {
                 ? presets[Self.defaultSelectedIndex].id
                 : presets.first?.id
         }
+        savePresets()
     }
 
     var selectedPreset: TimerPreset? {
@@ -53,6 +58,11 @@ final class PresetsStore: ObservableObject {
 
     func select(_ preset: TimerPreset) {
         selectedPresetID = preset.id
+        UserDefaults.standard.set("preset", forKey: Self.selectedKindKey)
+    }
+
+    func clearSelection() {
+        selectedPresetID = nil
     }
 
     func addPreset(seconds: TimeInterval = 5 * 60) {

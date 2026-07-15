@@ -9,6 +9,8 @@ import SwiftUI
 struct PresetsListView: View {
     @ObservedObject var timerModel: TimerModel
     @ObservedObject var presetsStore: PresetsStore
+    @ObservedObject var groupsStore: TimerGroupsStore
+    @ObservedObject var groupCoordinator: TimerGroupCoordinator
     @State private var isEditing = false
     @State private var draggedPresetID: UUID?
     @State private var dragStartIndex: Int?
@@ -36,6 +38,10 @@ struct PresetsListView: View {
                 .foregroundStyle(.secondary)
 
                 Menu {
+                    SettingsLink {
+                        Text("Settings…")
+                    }
+                    Divider()
                     Button("Quit MenuBarTimer") {
                         NSApplication.shared.terminate(nil)
                     }
@@ -48,11 +54,39 @@ struct PresetsListView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(presetsStore.presets) { preset in
+                    ForEach(presetsStore.presets.filter { !$0.isStopwatch }) { preset in
                         row(for: preset)
                     }
 
+                    if let stopwatch = presetsStore.presets.first(where: { $0.isStopwatch }) {
+                        Text("Stopwatch")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 8)
+                        row(for: stopwatch)
+                    }
+
+                    if !groupsStore.groups.isEmpty {
+                        Text("Timer Groups")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 8)
+                        ForEach(groupsStore.groups) { group in
+                            groupRow(for: group)
+                        }
+                    }
+
                     if isEditing {
+                        Button {
+                            groupsStore.addGroup()
+                            groupCoordinator.load(groupsStore.selectedGroup)
+                        } label: {
+                            Label("Add Timer Group", systemImage: "rectangle.3.group")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.purple)
+                        .padding(.top, 4)
+
                         Button {
                             presetsStore.addPreset()
                         } label: {
@@ -68,6 +102,73 @@ struct PresetsListView: View {
         .padding(24)
         .frame(width: 280)
         .onDisappear { resetDrag() }
+    }
+
+    private func groupRow(for group: TimerGroup) -> some View {
+        let isSelected = groupsStore.selectedGroupID == group.id
+        return Group {
+            if isEditing {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        TextField("Group name", text: groupNameBinding(for: group))
+                        Button { groupsStore.remove(group) } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                        }.buttonStyle(.plain)
+                    }
+                    ForEach(group.timers) { timer in
+                        HStack(spacing: 5) {
+                            TextField("Timer name", text: timerNameBinding(timer, in: group))
+                            Picker("Type", selection: timerTypeBinding(timer, in: group)) {
+                                Text("Down").tag(TimerType.countdown)
+                                Text("Up").tag(TimerType.countUp)
+                            }.labelsHidden().frame(width: 65)
+                            if timer.type == .countdown {
+                                DurationPicker(duration: timerDurationBinding(timer, in: group))
+                            }
+                            Button {
+                                groupsStore.removeTimer(timer, from: group)
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(group.timers.count == 1)
+                        }
+                    }
+                    Button {
+                        groupsStore.addTimer(to: group)
+                    } label: {
+                        Label("Add Timer", systemImage: "plus.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.blue)
+                }
+            } else {
+                Button {
+                    groupsStore.select(group)
+                    presetsStore.clearSelection()
+                    groupCoordinator.load(group)
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Image(systemName: "rectangle.3.group")
+                            Text(group.name)
+                            Spacer()
+                            if isSelected { Image(systemName: "checkmark") }
+                        }
+                        HStack(spacing: 8) {
+                            ForEach(group.timers) { timer in
+                                Text(timer.name + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
+                                    .foregroundStyle(timer.color)
+                                    .font(.caption)
+                            }
+                        }
+                    }.contentShape(Rectangle())
+                }
+                .buttonStyle(.bordered)
+                .tint(isSelected ? .purple : nil)
+            }
+        }
     }
 
     @ViewBuilder
@@ -109,6 +210,8 @@ struct PresetsListView: View {
             let isSelected = presetsStore.selectedPresetID == preset.id
             Button {
                 presetsStore.select(preset)
+                groupsStore.clearSelection()
+                groupCoordinator.load(nil)
                 timerModel.load(preset: preset)
             } label: {
                 HStack {
@@ -213,6 +316,36 @@ struct PresetsListView: View {
         dragOffset = 0
     }
 
+    private func groupNameBinding(for group: TimerGroup) -> Binding<String> {
+        Binding(get: { groupsStore.groups.first(where: { $0.id == group.id })?.name ?? "" }, set: { value in
+            guard var current = groupsStore.groups.first(where: { $0.id == group.id }) else { return }
+            current.name = value; groupsStore.update(current)
+        })
+    }
+
+    private func timerNameBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<String> {
+        groupBinding(timer, in: group, keyPath: \.name)
+    }
+
+    private func timerTypeBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<TimerType> {
+        groupBinding(timer, in: group, keyPath: \.type)
+    }
+
+    private func timerDurationBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<TimeInterval> {
+        groupBinding(timer, in: group, keyPath: \.seconds)
+    }
+
+    private func groupBinding<Value>(_ timer: GroupTimer, in group: TimerGroup, keyPath: WritableKeyPath<GroupTimer, Value>) -> Binding<Value> {
+        Binding(get: {
+            groupsStore.groups.first(where: { $0.id == group.id })?.timers.first(where: { $0.id == timer.id }).map { $0[keyPath: keyPath] } ?? timer[keyPath: keyPath]
+        }, set: { value in
+            guard var current = groupsStore.groups.first(where: { $0.id == group.id }),
+                  let index = current.timers.firstIndex(where: { $0.id == timer.id }) else { return }
+            current.timers[index][keyPath: keyPath] = value
+            groupsStore.update(current)
+        })
+    }
+
     private func durationBinding(for preset: TimerPreset) -> Binding<TimeInterval> {
         Binding(
             get: {
@@ -227,5 +360,5 @@ struct PresetsListView: View {
 }
 
 #Preview {
-    PresetsListView(timerModel: TimerModel(), presetsStore: PresetsStore())
+    PresetsListView(timerModel: TimerModel(), presetsStore: PresetsStore(), groupsStore: TimerGroupsStore(), groupCoordinator: TimerGroupCoordinator())
 }

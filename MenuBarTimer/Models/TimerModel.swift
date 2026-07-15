@@ -23,7 +23,7 @@ final class TimerModel: ObservableObject {
     @Published private(set) var canUndoAdjustment = false
 
     private static let adjustmentUndoDuration: TimeInterval = 10
-    private static let savedStateKey = "timerState"
+    private static let defaultSavedStateKey = "timerState"
 
     private struct SavedState: Codable {
         let totalDuration: TimeInterval
@@ -40,6 +40,7 @@ final class TimerModel: ObservableObject {
     }
 
     private let userDefaults: UserDefaults
+    private let savedStateKey: String
     private var terminationObserver: NSObjectProtocol?
     private var timer: Timer?
     private var undoTimer: Timer?
@@ -47,8 +48,9 @@ final class TimerModel: ObservableObject {
     private var startDate: Date?
     private var adjustmentOriginalEndDate: Date?
 
-    init(userDefaults: UserDefaults = .standard) {
+    init(userDefaults: UserDefaults = .standard, savedStateKey: String = TimerModel.defaultSavedStateKey) {
         self.userDefaults = userDefaults
+        self.savedStateKey = savedStateKey
         restoreState()
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
@@ -60,6 +62,7 @@ final class TimerModel: ObservableObject {
     }
 
     deinit {
+        invalidateTimer()
         if let terminationObserver {
             NotificationCenter.default.removeObserver(terminationObserver)
         }
@@ -90,7 +93,7 @@ final class TimerModel: ObservableObject {
         }
     }
 
-    private func load(type: TimerType, duration: TimeInterval) {
+    func load(type: TimerType, duration: TimeInterval) {
         clearAdjustmentUndo()
         invalidateTimer()
         endDate = nil
@@ -210,7 +213,7 @@ final class TimerModel: ObservableObject {
     }
 
     private func restoreState() {
-        guard let data = userDefaults.data(forKey: Self.savedStateKey),
+        guard let data = userDefaults.data(forKey: savedStateKey),
               let savedState = try? JSONDecoder().decode(SavedState.self, from: data),
               savedState.totalDuration >= 0,
               savedState.remaining >= 0 else { return }
@@ -242,7 +245,7 @@ final class TimerModel: ObservableObject {
             timerType: timerType
         )
         guard let data = try? JSONEncoder().encode(savedState) else { return }
-        userDefaults.set(data, forKey: Self.savedStateKey)
+        userDefaults.set(data, forKey: savedStateKey)
     }
 
     private var stateValue: StateValue {
