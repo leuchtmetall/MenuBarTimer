@@ -5,19 +5,21 @@
 
 import SwiftUI
 
-/// The left-hand side of the overlay: the big countdown ring and its controls.
+/// The left-hand side of the overlay: the timer display and its controls.
 struct TimerControlView: View {
     @ObservedObject var timerModel: TimerModel
 
     var body: some View {
         VStack(spacing: 24) {
             ZStack {
-                DonutProgressView(
-                    progress: timerModel.progress,
-                    lineWidth: 14,
-                    onProgressChange: { timerModel.setProgress($0) }
-                )
-                .frame(width: 180, height: 180)
+                if timerModel.timerType == .countdown {
+                    DonutProgressView(
+                        progress: timerModel.progress,
+                        lineWidth: 14,
+                        onProgressChange: { timerModel.setProgress($0) }
+                    )
+                    .frame(width: 180, height: 180)
+                }
 
                 VStack(spacing: 4) {
                     Text(displayTime)
@@ -47,14 +49,14 @@ struct TimerControlView: View {
                         .frame(minWidth: 72)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(timerModel.totalDuration == 0)
+                                .disabled(!timerModel.hasLoadedTimer)
 
                 Button(action: { timerModel.stop() }) {
                     Label("Stop", systemImage: "stop.fill")
                         .frame(minWidth: 72)
                 }
                 .buttonStyle(.bordered)
-                .disabled(timerModel.totalDuration == 0)
+                                .disabled(!timerModel.hasLoadedTimer)
             }
         }
         .padding(28)
@@ -62,8 +64,10 @@ struct TimerControlView: View {
     }
 
     private var displayTime: String {
-        timerModel.totalDuration > 0 ? timerModel.remaining.formattedClock : TimeInterval(0).formattedClock
+        timerModel.remaining.formattedClock
     }
+
+
 
     private var statusText: String {
         switch timerModel.state {

@@ -22,16 +22,21 @@ struct MenuBarLabelView: View {
 
     var body: some View {
         HStack() {
-            Image(nsImage: ringImage)
-                .frame(width: iconSize, height: iconSize)
+            if timerModel.timerType == .countUp {
+                Image(systemName: "stopwatch")
+                    .frame(width: iconSize, height: iconSize)
+            } else {
+                Image(nsImage: ringImage)
+                    .frame(width: iconSize, height: iconSize)
+            }
             Text(timerModel.remaining.formattedClock)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .monospacedDigit()
         }
         .onAppear {
             // Restore the previously selected timer on launch (or a reasonable default on first launch).
-            guard timerModel.totalDuration == 0, let seconds = presetsStore.selectedPreset?.seconds else { return }
-            timerModel.load(seconds: seconds)
+            guard !timerModel.hasLoadedTimer, let preset = presetsStore.selectedPreset else { return }
+            timerModel.load(preset: preset)
         }
     }
 

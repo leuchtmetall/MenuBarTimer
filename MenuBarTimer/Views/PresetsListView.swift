@@ -81,15 +81,22 @@ struct PresetsListView: View {
                     .help("Drag to rearrange preset")
                     .gesture(reorderGesture(for: preset))
 
-                DurationPicker(duration: durationBinding(for: preset))
-
-                Button {
-                    presetsStore.removePreset(preset)
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .foregroundStyle(.red)
+                if preset.isStopwatch {
+                    Label("Stopwatch", systemImage: "stopwatch")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    DurationPicker(duration: durationBinding(for: preset))
                 }
-                .buttonStyle(.plain)
+
+                if !preset.isStopwatch {
+                    Button {
+                        presetsStore.removePreset(preset)
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .offset(y: rowOffset(for: preset))
             .opacity(draggedPresetID == preset.id ? 0.65 : 1)
@@ -102,11 +109,15 @@ struct PresetsListView: View {
             let isSelected = presetsStore.selectedPresetID == preset.id
             Button {
                 presetsStore.select(preset)
-                timerModel.load(seconds: preset.seconds)
+                timerModel.load(preset: preset)
             } label: {
                 HStack {
-                    Text(preset.seconds.formattedClock)
-                        .monospacedDigit()
+                    if preset.isStopwatch {
+                        Label("Stopwatch", systemImage: "stopwatch")
+                    } else {
+                        Text(preset.seconds.formattedClock)
+                            .monospacedDigit()
+                    }
                     Spacer()
                     if isSelected {
                         Image(systemName: "checkmark")

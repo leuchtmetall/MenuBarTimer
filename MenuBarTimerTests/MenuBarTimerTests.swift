@@ -28,4 +28,25 @@ struct MenuBarTimerTests {
 
         defaults.removePersistentDomain(forName: "TimerModelTests")
     }
+
+    @Test func stopwatchCountsUpAndResets() {
+        let defaults = UserDefaults(suiteName: "StopwatchTests")!
+        defaults.removePersistentDomain(forName: "StopwatchTests")
+
+        let timer = TimerModel(userDefaults: defaults)
+        timer.load(preset: .stopwatch)
+        timer.start()
+        timer.pause()
+
+        #expect(timer.timerType == .countUp)
+        #expect(timer.totalDuration == 0)
+        #expect(timer.remaining >= 0)
+        #expect(timer.state == .paused)
+
+        timer.stop()
+        #expect(timer.remaining == 0)
+        #expect(timer.state == .idle)
+
+        defaults.removePersistentDomain(forName: "StopwatchTests")
+    }
 }

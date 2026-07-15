@@ -5,14 +5,30 @@
 
 import Foundation
 
-/// A user-configurable, quick-start timer duration.
+/// The kind of timer a preset starts.
+enum TimerType: String, Codable, Equatable {
+    case countdown
+    case countUp
+}
+
+/// A user-configurable, quick-start timer preset.
 struct TimerPreset: Identifiable, Codable, Equatable {
     let id: UUID
     var seconds: TimeInterval
+    var type: TimerType
 
-    init(id: UUID = UUID(), seconds: TimeInterval) {
+    init(id: UUID = UUID(), seconds: TimeInterval, type: TimerType = .countdown) {
         self.id = id
         self.seconds = seconds
+        self.type = type
+    }
+
+    static var stopwatch: TimerPreset {
+        TimerPreset(seconds: 0, type: .countUp)
+    }
+
+    var isStopwatch: Bool {
+        type == .countUp
     }
 
     var hours: Int {

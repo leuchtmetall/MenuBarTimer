@@ -25,13 +25,13 @@ final class PresetsStore: ObservableObject {
 
     private static let defaultPresets: [TimerPreset] = [5, 10, 15, 25, 45].map {
         TimerPreset(seconds: TimeInterval($0 * 60))
-    }
+    } + [.stopwatch]
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.presetsKey),
            let decoded = try? JSONDecoder().decode([TimerPreset].self, from: data),
            !decoded.isEmpty {
-            presets = decoded
+            presets = decoded.contains(where: { $0.isStopwatch }) ? decoded : decoded + [.stopwatch]
         } else {
             presets = Self.defaultPresets
         }

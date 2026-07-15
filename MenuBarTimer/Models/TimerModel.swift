@@ -7,7 +7,7 @@ import AppKit
 import Combine
 import Foundation
 
-/// Drives a single countdown timer.
+/// Drives a single countdown or count-up timer.
 final class TimerModel: ObservableObject {
     enum State: Equatable {
         case idle
@@ -17,6 +17,7 @@ final class TimerModel: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
+    @Published private(set) var timerType: TimerType = .countdown
     @Published private(set) var totalDuration: TimeInterval = 0
     @Published private(set) var remaining: TimeInterval = 0
     @Published private(set) var canUndoAdjustment = false
@@ -28,6 +29,7 @@ final class TimerModel: ObservableObject {
         let totalDuration: TimeInterval
         let remaining: TimeInterval
         let state: StateValue
+        let timerType: TimerType?
     }
 
     private enum StateValue: String, Codable {
@@ -42,6 +44,7 @@ final class TimerModel: ObservableObject {
     private var timer: Timer?
     private var undoTimer: Timer?
     private var endDate: Date?
+    private var startDate: Date?
     private var adjustmentOriginalEndDate: Date?
 
     init(userDefaults: UserDefaults = .standard) {
@@ -62,30 +65,53 @@ final class TimerModel: ObservableObject {
         }
     }
 
+    var hasLoadedTimer: Bool {
+        timerType == .countUp || totalDuration > 0
+    }
+
     /// Fraction of the timer that has elapsed, from `0` (just started) to `1` (finished).
     var progress: Double {
         guard totalDuration > 0 else { return 0 }
         return min(max(1 - remaining / totalDuration, 0), 1)
     }
 
-    /// Loads a duration into the timer without starting the countdown.
+    /// Loads a countdown duration into the timer without starting it.
     func load(seconds: TimeInterval) {
         guard seconds > 0 else { return }
+        load(type: .countdown, duration: seconds)
+    }
+
+    /// Loads a preset without starting the timer.
+    func load(preset: TimerPreset) {
+        if preset.type == .countUp {
+            load(type: .countUp, duration: 0)
+        } else {
+            load(type: .countdown, duration: preset.seconds)
+        }
+    }
+
+    private func load(type: TimerType, duration: TimeInterval) {
         clearAdjustmentUndo()
         invalidateTimer()
         endDate = nil
-        totalDuration = seconds
-        remaining = seconds
+        startDate = nil
+        timerType = type
+        totalDuration = duration
+        remaining = type == .countUp ? 0 : duration
         state = .idle
         saveState()
     }
 
-    /// Starts counting down from the current `remaining` value.
+    /// Starts the timer from its current position.
     func start() {
-        guard remaining > 0 else { return }
+        guard timerType == .countUp || remaining > 0 else { return }
         clearAdjustmentUndo()
         invalidateTimer()
-        endDate = Date().addingTimeInterval(remaining)
+        if timerType == .countUp {
+            startDate = Date().addingTimeInterval(-remaining)
+        } else {
+            endDate = Date().addingTimeInterval(remaining)
+        }
         state = .running
         scheduleTimer()
         saveState()
@@ -109,6 +135,9 @@ final class TimerModel: ObservableObject {
     func pause() {
         guard state == .running else { return }
         clearAdjustmentUndo()
+        if timerType == .countUp {
+            tick()
+        }
         invalidateTimer()
         endDate = nil
         state = .paused
@@ -116,9 +145,13 @@ final class TimerModel: ObservableObject {
     }
 
     func resume() {
-        guard state == .paused, remaining > 0 else { return }
+        guard state == .paused, timerType == .countUp || remaining > 0 else { return }
         clearAdjustmentUndo()
-        endDate = Date().addingTimeInterval(remaining)
+        if timerType == .countUp {
+            startDate = Date().addingTimeInterval(-remaining)
+        } else {
+            endDate = Date().addingTimeInterval(remaining)
+        }
         state = .running
         scheduleTimer()
         saveState()
@@ -129,7 +162,8 @@ final class TimerModel: ObservableObject {
         clearAdjustmentUndo()
         invalidateTimer()
         endDate = nil
-        remaining = totalDuration
+        startDate = nil
+        remaining = timerType == .countUp ? 0 : totalDuration
         state = .idle
         saveState()
     }
@@ -137,7 +171,7 @@ final class TimerModel: ObservableObject {
     /// Moves a running timer to a position on its progress ring.
     /// The position represents elapsed time, so `0` is the start and `1` is the end.
     func setProgress(_ progress: Double) {
-        guard state == .running, totalDuration > 0 else { return }
+        guard timerType == .countdown, state == .running, totalDuration > 0 else { return }
 
         if adjustmentOriginalEndDate == nil {
             adjustmentOriginalEndDate = endDate
@@ -178,11 +212,12 @@ final class TimerModel: ObservableObject {
     private func restoreState() {
         guard let data = userDefaults.data(forKey: Self.savedStateKey),
               let savedState = try? JSONDecoder().decode(SavedState.self, from: data),
-              savedState.totalDuration > 0,
+              savedState.totalDuration >= 0,
               savedState.remaining >= 0 else { return }
 
+        timerType = savedState.timerType ?? .countdown
         totalDuration = savedState.totalDuration
-        remaining = min(savedState.remaining, savedState.totalDuration)
+        remaining = timerType == .countUp ? savedState.remaining : min(savedState.remaining, savedState.totalDuration)
         switch savedState.state {
         case .idle: state = .idle
         case .running, .paused: state = .paused
@@ -192,14 +227,19 @@ final class TimerModel: ObservableObject {
 
     private func saveState() {
         var savedRemaining = remaining
-        if state == .running, let endDate {
-            savedRemaining = max(endDate.timeIntervalSinceNow, 0)
+        if state == .running {
+            if timerType == .countUp, let startDate {
+                savedRemaining = max(Date().timeIntervalSince(startDate), 0)
+            } else if let endDate {
+                savedRemaining = max(endDate.timeIntervalSinceNow, 0)
+            }
         }
 
         let savedState = SavedState(
             totalDuration: totalDuration,
             remaining: savedRemaining,
-            state: stateValue
+            state: stateValue,
+            timerType: timerType
         )
         guard let data = try? JSONEncoder().encode(savedState) else { return }
         userDefaults.set(data, forKey: Self.savedStateKey)
@@ -249,6 +289,12 @@ final class TimerModel: ObservableObject {
     }
 
     private func tick() {
+        if timerType == .countUp {
+            guard let startDate else { return }
+            remaining = max(Date().timeIntervalSince(startDate), 0)
+            return
+        }
+
         guard let endDate else { return }
         let newRemaining = endDate.timeIntervalSinceNow
         if newRemaining <= 0 {
