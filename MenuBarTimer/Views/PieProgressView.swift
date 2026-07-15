@@ -15,13 +15,31 @@ struct PieProgressView: View {
     var trackOpacity: Double = 0.2
 
     var body: some View {
-        ZStack {
-            Circle()
-                .stroke(.foreground, style: .init(lineWidth: 1))
-            PieSliceShape(progress: progress)
-                .fill(Color.black)
+        GeometryReader { geometry in
+            ZStack {
+                Circle()
+                    .stroke(.foreground, style: .init(lineWidth: 1))
+
+                Path { path in
+                    let center = CGPoint(
+                        x: geometry.size.width / 2,
+                        y: geometry.size.height / 2 + 0.5 // offset by 0.5 so the center point is filled. Otherwise, thin slices would look too short.
+                    )
+
+                    path.move(to: center)
+                    path.addLine(
+                        to: CGPoint(
+                            x: center.x,
+                            y: 0
+                        ))
+                }
+                .stroke(.black, lineWidth: 0.5)
+                PieSliceShape(progress: progress)
+                    .fill(.black)
+                    .rotationEffect(.degrees(-90)) // rotate, so the slice starts at the 12 o'clock position.
+            }
+
         }
-        .rotationEffect(.degrees(-90))
     }
 }
 
