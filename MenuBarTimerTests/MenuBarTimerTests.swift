@@ -5,15 +5,27 @@
 //  Created by Leonhard Massloch on 2026/07/14.
 //
 
+import Foundation
 import Testing
 @testable import MenuBarTimer
 
 struct MenuBarTimerTests {
+    @Test func timerPositionIsRestored() {
+        let defaults = UserDefaults(suiteName: "TimerModelTests")!
+        defaults.removePersistentDomain(forName: "TimerModelTests")
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+        let timer = TimerModel(userDefaults: defaults)
+        timer.load(seconds: 100)
+        timer.start()
+        timer.setProgress(0.4)
+        timer.pause()
+
+        let restoredTimer = TimerModel(userDefaults: defaults)
+
+        #expect(restoredTimer.totalDuration == 100)
+        #expect(restoredTimer.remaining == 60)
+        #expect(restoredTimer.state == .paused)
+
+        defaults.removePersistentDomain(forName: "TimerModelTests")
     }
-
 }

@@ -3,6 +3,7 @@
 //  MenuBarTimer
 //
 
+import AppKit
 import Combine
 import Foundation
 
@@ -21,10 +22,45 @@ final class TimerModel: ObservableObject {
     @Published private(set) var canUndoAdjustment = false
 
     private static let adjustmentUndoDuration: TimeInterval = 10
+    private static let savedStateKey = "timerState"
+
+    private struct SavedState: Codable {
+        let totalDuration: TimeInterval
+        let remaining: TimeInterval
+        let state: StateValue
+    }
+
+    private enum StateValue: String, Codable {
+        case idle
+        case running
+        case paused
+        case finished
+    }
+
+    private let userDefaults: UserDefaults
+    private var terminationObserver: NSObjectProtocol?
     private var timer: Timer?
     private var undoTimer: Timer?
     private var endDate: Date?
     private var adjustmentOriginalEndDate: Date?
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        restoreState()
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.saveState()
+        }
+    }
+
+    deinit {
+        if let terminationObserver {
+            NotificationCenter.default.removeObserver(terminationObserver)
+        }
+    }
 
     /// Fraction of the timer that has elapsed, from `0` (just started) to `1` (finished).
     var progress: Double {
@@ -41,6 +77,7 @@ final class TimerModel: ObservableObject {
         totalDuration = seconds
         remaining = seconds
         state = .idle
+        saveState()
     }
 
     /// Starts counting down from the current `remaining` value.
@@ -51,6 +88,7 @@ final class TimerModel: ObservableObject {
         endDate = Date().addingTimeInterval(remaining)
         state = .running
         scheduleTimer()
+        saveState()
     }
 
     /// Toggles between running and paused, or restarts after finishing.
@@ -74,6 +112,7 @@ final class TimerModel: ObservableObject {
         invalidateTimer()
         endDate = nil
         state = .paused
+        saveState()
     }
 
     func resume() {
@@ -82,6 +121,7 @@ final class TimerModel: ObservableObject {
         endDate = Date().addingTimeInterval(remaining)
         state = .running
         scheduleTimer()
+        saveState()
     }
 
     /// Stops the timer and resets the remaining time back to the loaded duration.
@@ -91,6 +131,7 @@ final class TimerModel: ObservableObject {
         endDate = nil
         remaining = totalDuration
         state = .idle
+        saveState()
     }
 
     /// Moves a running timer to a position on its progress ring.
@@ -108,6 +149,7 @@ final class TimerModel: ObservableObject {
         endDate = Date().addingTimeInterval(newRemaining)
         canUndoAdjustment = true
         scheduleAdjustmentUndoExpiry()
+        saveState()
 
         if newRemaining <= 0 {
             finish()
@@ -131,6 +173,45 @@ final class TimerModel: ObservableObject {
         state = .running
         clearAdjustmentUndo()
         scheduleTimer()
+    }
+
+    private func restoreState() {
+        guard let data = userDefaults.data(forKey: Self.savedStateKey),
+              let savedState = try? JSONDecoder().decode(SavedState.self, from: data),
+              savedState.totalDuration > 0,
+              savedState.remaining >= 0 else { return }
+
+        totalDuration = savedState.totalDuration
+        remaining = min(savedState.remaining, savedState.totalDuration)
+        switch savedState.state {
+        case .idle: state = .idle
+        case .running, .paused: state = .paused
+        case .finished: state = .finished
+        }
+    }
+
+    private func saveState() {
+        var savedRemaining = remaining
+        if state == .running, let endDate {
+            savedRemaining = max(endDate.timeIntervalSinceNow, 0)
+        }
+
+        let savedState = SavedState(
+            totalDuration: totalDuration,
+            remaining: savedRemaining,
+            state: stateValue
+        )
+        guard let data = try? JSONEncoder().encode(savedState) else { return }
+        userDefaults.set(data, forKey: Self.savedStateKey)
+    }
+
+    private var stateValue: StateValue {
+        switch state {
+        case .idle: return .idle
+        case .running: return .running
+        case .paused: return .paused
+        case .finished: return .finished
+        }
     }
 
     private func scheduleTimer() {
@@ -183,6 +264,7 @@ final class TimerModel: ObservableObject {
         invalidateTimer()
         endDate = nil
         state = .finished
+        saveState()
         SoundPlayer.playTimerCompleteSound()
     }
 }
