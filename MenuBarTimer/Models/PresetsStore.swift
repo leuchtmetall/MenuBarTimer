@@ -5,6 +5,7 @@
 
 import Combine
 import Foundation
+import SwiftUI
 
 /// Persists the user's list of quick-start timer presets, along with which one is currently selected.
 final class PresetsStore: ObservableObject {
@@ -63,6 +64,17 @@ final class PresetsStore: ObservableObject {
         if selectedPresetID == preset.id {
             selectedPresetID = presets.first?.id
         }
+    }
+
+    func movePreset(_ presetID: UUID, toIndex targetIndex: Int) {
+        guard let sourceIndex = presets.firstIndex(where: { $0.id == presetID }),
+              presets.indices.contains(targetIndex),
+              sourceIndex != targetIndex else {
+            return
+        }
+
+        let preset = presets.remove(at: sourceIndex)
+        presets.insert(preset, at: targetIndex)
     }
 
     private func savePresets() {
