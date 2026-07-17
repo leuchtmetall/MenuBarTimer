@@ -31,7 +31,7 @@ struct MenuBarLabelView: View {
             } else {
                 HStack {
                     timerImage(for: timerModel)
-                    Text(timerModel.preset.type == .countUp ? timerModel.remaining.formattedElapsedClock : timerModel.remaining.formattedClock)
+                    Text(timerModel.timeString)
                         .font(.system(size: 12, weight: .medium))
                         .monospacedDigit()
                 }
@@ -53,7 +53,7 @@ struct MenuBarLabelView: View {
 
     private func timerImage(for timerModel: TimerModel) -> some View {
         var img: Image;
-        if (timerModel.preset.type == .countUp) {
+        if (timerModel.preset.isStopwatch) {
             img = Image(systemName: "stopwatch")
         } else {
             img = Image(nsImage: ringImage(progress: timerModel.progress))
@@ -62,37 +62,21 @@ struct MenuBarLabelView: View {
     }
 
     private func groupLabel(for groupModel: TimerGroupModel) -> Text {
-        var label = Text("")
-        for (index, definition) in groupModel.group.timers.enumerated() {
-            let timer = groupModel.timerModels[index]
-            let icon = timer.preset.type == .countUp
-                ? Image(systemName: "stopwatch")
-                : Image(nsImage: ringImage(progress: timer.progress))
-//            let icon = timerImage(for: timerModel)
-            let time = timer.preset.type == .countUp
-                ? timer.remaining.formattedElapsedClock
-                : timer.remaining.formattedClock
-            let timerName = definition.name ?? ""
+        let labels = groupModel.timerModels.map {timerModel -> String in
+            let timerName = timerModel.preset.name ?? ""
             let name: String = switch settings.groupTimerNameDisplay {
-            case .wholeLabel: timerName + " " // TODO improve check for group-timer
-            case .firstCharacter: String(timerName.prefix(1)) + " "
-            case .none: ""
+                case .wholeLabel: timerName + " " // TODO improve check for group-timer
+                case .firstCharacter: String(timerName.prefix(1)) + " "
+                case .none: ""
             }
-            var segment = Text(name)
-            if settings.showGroupTimerProgress {
-                segment = segment + Text(icon) + Text(" ")
-            }
-            segment = segment + Text(time)
-            if index > 0 { label = label + Text("   ") }
-            label = label + segment
+            return name + timerModel.timeString
         }
-        return label
+        return Text(labels.joined(separator: "   "))
     }
-
+    
     private func coloredGroupLabelImage(for groupModel: TimerGroupModel) -> NSImage {
         let renderer = ImageRenderer(content: ColoredGroupMenuBarLabel(
-            group: groupModel.group,
-            timers: groupModel.timerModels,
+            timerModels: groupModel.timerModels,
             nameDisplay: settings.groupTimerNameDisplay,
             showProgress: settings.showGroupTimerProgress,
             ringImage: ringImage
@@ -118,39 +102,41 @@ struct MenuBarLabelView: View {
 }
 
 private struct ColoredGroupMenuBarLabel: View {
-    let group: TimerGroup
-    let timers: [TimerModel]
+    let timerModels: [TimerModel]
     let nameDisplay: GroupTimerNameDisplay
     let showProgress: Bool
     let ringImage: (Double) -> NSImage
 
     var body: some View {
         HStack(spacing: 12) {
-            ForEach(Array(zip(group.timers.indices, group.timers)), id: \.1.id) { index, definition in
-                let timer = timers[index]
-                let timerName = definition.name ?? "" // TODO?
+            ForEach(timerModels) { timerModel in
+                let timerName = timerModel.preset.name ?? "" // TODO?
                 let name: String = switch nameDisplay {
                 case .wholeLabel: timerName
                 case .firstCharacter: String(timerName.prefix(1))
                 case .none: ""
                 }
                 HStack(spacing: 2) {
-                    Text(name)
+                    Text(name).padding(.top, -2).padding(.leading, -4)
                     if showProgress {
-                        if timer.preset.type == .countUp {
+                        if timerModel.preset.isStopwatch {
                             Image(systemName: "stopwatch")
                         } else {
-                            Image(nsImage: ringImage(timer.progress))
+                            Image(nsImage: ringImage(timerModel.progress))
                         }
                     }
-                    Text(timer.preset.type == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock)
+                    Text(timerModel.timeString)
                        .monospacedDigit()
+                       .padding(.top, -2)
+                       .padding(.trailing, 1)
+                       .padding(.leading, -0.5)
                 }
                 .font(Font(NSFont.menuBarFont(ofSize: 0)))
-               .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(definition.color)
+                .foregroundStyle(timerModel.preset.color)
+                .padding(.trailing, 1)
             }
         }
         .fixedSize()
+        .padding(.leading, 4)
     }
 }

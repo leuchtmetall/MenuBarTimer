@@ -79,6 +79,12 @@ final class TimerModel: Identifiable, ObservableObject {
         guard totalDuration > 0 else { return 0 }
         return min(max(1 - remaining / totalDuration, 0), 1)
     }
+    
+    var timeString: String {
+        preset.type == .countUp
+            ? remaining.formattedElapsedClock
+            : remaining.formattedClock
+    }
 
     /// Loads a preset without starting the timer.
     func load(_ timerPreset: TimerPreset) {

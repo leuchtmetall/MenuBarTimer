@@ -35,7 +35,7 @@ private struct SingleTimerControlView: View {
                 }
 
                 VStack(spacing: 4) {
-                    Text(displayTime)
+                    Text(timerModel.timeString)
                         .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                     Text(statusText)
@@ -71,14 +71,8 @@ private struct SingleTimerControlView: View {
         }
         .padding(28)
         .frame(width: 260)
-    }
-
-    private var displayTime: String {
-        timerModel.preset.type == .countUp
-            ? timerModel.remaining.formattedElapsedClock
-            : timerModel.remaining.formattedClock
-    }
-
+    }    
+  
     private var statusText: String {
         switch timerModel.state {
         case .idle: return "Ready"

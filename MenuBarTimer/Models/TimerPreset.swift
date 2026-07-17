@@ -31,13 +31,14 @@ struct TimerPreset: Identifiable, Codable, Equatable {
     
     var color: Color {
         switch colorName {
+        case "blue": return .blue
         case "red": return .red
         case "orange": return .orange
         case "green": return .green
         case "purple": return .purple
         case "pink": return .pink
         case "yellow": return .yellow
-        default: return .blue
+        default: return .primary
         }
     }
 

@@ -18,7 +18,7 @@ struct MenuBarTimerApp: App {
     @State private var isMenuPresented = false
 
     var body: some Scene {
-        
+
         let popoverView = TimerPopoverView()
             .environmentObject(timerModel)
             .environmentObject(presetsStore)
