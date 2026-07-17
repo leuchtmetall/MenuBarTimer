@@ -15,7 +15,7 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerModelTests")
 
         let timer = TimerModel(userDefaults: defaults)
-        timer.load(seconds: 100)
+        timer.load(TimerPreset(seconds: 100))
         timer.start()
         timer.setProgress(0.4)
         timer.pause()
@@ -32,18 +32,18 @@ struct MenuBarTimerTests {
     @Test func timerGroupOnlyRunsOneTimerAtATime() {
         let defaults = UserDefaults(suiteName: "TimerGroupTests")!
         defaults.removePersistentDomain(forName: "TimerGroupTests")
-        let first = GroupTimer(name: "Work", seconds: 60)
-        let second = GroupTimer(name: "Break", seconds: 30, type: .countUp)
+        let first = TimerPreset(seconds: 60, name: "Work")
+        let second = TimerPreset(seconds: 30, type: .countUp, name: "Break")
         let group = TimerGroup(name: "Focus", timers: [first, second])
         let model = TimerGroupModel(group: group, userDefaults: defaults)
 
         model.start(first)
-        #expect(model.timers[0].state == .running)
-        #expect(model.timers[1].state != .running)
+        #expect(model.timerModels[0].state == .running)
+        #expect(model.timerModels[1].state != .running)
 
         model.start(second)
-        #expect(model.timers[0].state == .paused)
-        #expect(model.timers[1].state == .running)
+        #expect(model.timerModels[0].state == .paused)
+        #expect(model.timerModels[1].state == .running)
 
         defaults.removePersistentDomain(forName: "TimerGroupTests")
     }
@@ -53,11 +53,11 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "StopwatchTests")
 
         let timer = TimerModel(userDefaults: defaults)
-        timer.load(preset: .stopwatch)
+        timer.load(.stopwatch)
         timer.start()
         timer.pause()
 
-        #expect(timer.timerType == .countUp)
+        #expect(timer.preset.type == .countUp)
         #expect(timer.totalDuration == 0)
         #expect(timer.remaining >= 0)
         #expect(timer.state == .paused)

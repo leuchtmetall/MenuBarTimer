@@ -18,13 +18,15 @@ struct MenuBarTimerApp: App {
     @State private var isMenuPresented = false
 
     var body: some Scene {
+        
+        let popoverView = TimerPopoverView()
+            .environmentObject(timerModel)
+            .environmentObject(presetsStore)
+            .environmentObject(groupsStore)
+            .environmentObject(groupCoordinator)
+            .environmentObject(settings)
         MenuBarExtra {
-            TimerPopoverView()
-                .environmentObject(timerModel)
-                .environmentObject(presetsStore)
-                .environmentObject(groupsStore)
-                .environmentObject(groupCoordinator)
-                .environmentObject(settings)
+            popoverView
         } label: {
             MenuBarLabelView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator, settings: settings)
                 .id(groupsStore.selectedGroupID?.uuidString ?? presetsStore.selectedPresetID?.uuidString ?? "timer")

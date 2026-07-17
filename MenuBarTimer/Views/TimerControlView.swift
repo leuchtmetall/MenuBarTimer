@@ -25,7 +25,7 @@ private struct SingleTimerControlView: View {
     var body: some View {
         VStack(spacing: 24) {
             ZStack {
-                if timerModel.timerType == .countdown {
+                if timerModel.preset.type == .countdown {
                     DonutProgressView(
                         progress: timerModel.progress,
                         lineWidth: 14,
@@ -74,7 +74,7 @@ private struct SingleTimerControlView: View {
     }
 
     private var displayTime: String {
-        timerModel.timerType == .countUp
+        timerModel.preset.type == .countUp
             ? timerModel.remaining.formattedElapsedClock
             : timerModel.remaining.formattedClock
     }
@@ -100,7 +100,7 @@ private struct TimerGroupControlView: View {
             ForEach(Array(zip(groupModel.group.timers.indices, groupModel.group.timers)), id: \.1.id) { index, definition in
                 GroupTimerControlPanel(
                     definition: definition,
-                    timer: groupModel.timers[index],
+                    timer: groupModel.timerModels[index],
                     onStart: { groupModel.start(definition) }
                 )
             }
@@ -111,19 +111,19 @@ private struct TimerGroupControlView: View {
 }
 
 private struct GroupTimerControlPanel: View {
-    let definition: GroupTimer
+    let definition: TimerPreset
     @ObservedObject var timer: TimerModel
     let onStart: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
-            Text(definition.name)
+            Text(definition.name ?? "")
                 .font(.headline)
                 .foregroundStyle(definition.color)
                 .lineLimit(1)
 
             ZStack {
-                if timer.timerType == .countdown {
+                if timer.preset.type == .countdown {
                     DonutProgressView(
                         progress: timer.progress,
                         lineWidth: 12,
@@ -162,7 +162,7 @@ private struct GroupTimerControlPanel: View {
     }
 
     private var displayTime: String {
-        timer.timerType == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock
+        timer.preset.type == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock
     }
 
     private var statusText: String {

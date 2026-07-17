@@ -160,7 +160,7 @@ struct PresetsListView: View {
                         }
                         HStack(spacing: 8) {
                             ForEach(group.timers) { timer in
-                                Text(timer.name + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
+                                Text((timer.name ?? "") + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
                                     .foregroundStyle(timer.color)
                                     .font(.caption)
                             }
@@ -208,7 +208,7 @@ struct PresetsListView: View {
                 presetsStore.select(preset)
                 groupsStore.clearSelection()
                 groupCoordinator.load(nil)
-                timerModel.load(preset: preset)
+                timerModel.load(preset)
             } label: {
                 HStack {
                     if preset.isStopwatch {
@@ -319,19 +319,24 @@ struct PresetsListView: View {
         })
     }
 
-    private func timerNameBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<String> {
-        groupBinding(timer, in: group, keyPath: \.name)
+    private func timerNameBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<String> {
+        let inner: Binding<String?> = groupBinding(timer, in: group, keyPath: \.name)
+        return Binding(
+            get: { inner.wrappedValue ?? "" },
+            set: { inner.wrappedValue = $0.isEmpty ? nil : $0 }
+        )
     }
 
-    private func timerTypeBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<TimerType> {
+
+    private func timerTypeBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<TimerType> {
         groupBinding(timer, in: group, keyPath: \.type)
     }
 
-    private func timerDurationBinding(_ timer: GroupTimer, in group: TimerGroup) -> Binding<TimeInterval> {
+    private func timerDurationBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<TimeInterval> {
         groupBinding(timer, in: group, keyPath: \.seconds)
     }
 
-    private func groupBinding<Value>(_ timer: GroupTimer, in group: TimerGroup, keyPath: WritableKeyPath<GroupTimer, Value>) -> Binding<Value> {
+    private func groupBinding<Value>(_ timer: TimerPreset, in group: TimerGroup, keyPath: WritableKeyPath<TimerPreset, Value>) -> Binding<Value> {
         Binding(get: {
             groupsStore.groups.first(where: { $0.id == group.id })?.timers.first(where: { $0.id == timer.id }).map { $0[keyPath: keyPath] } ?? timer[keyPath: keyPath]
         }, set: { value in

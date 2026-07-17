@@ -30,15 +30,9 @@ struct MenuBarLabelView: View {
                 }
             } else {
                 HStack {
-                    if timerModel.timerType == .countUp {
-                        Image(systemName: "stopwatch")
-                            .frame(width: iconSize, height: iconSize)
-                    } else {
-                        Image(nsImage: ringImage(progress: timerModel.progress))
-                            .frame(width: iconSize, height: iconSize)
-                    }
-                    Text(timerModel.timerType == .countUp ? timerModel.remaining.formattedElapsedClock : timerModel.remaining.formattedClock)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    timerImage(for: timerModel)
+                    Text(timerModel.preset.type == .countUp ? timerModel.remaining.formattedElapsedClock : timerModel.remaining.formattedClock)
+                        .font(.system(size: 12, weight: .medium))
                         .monospacedDigit()
                 }
             }
@@ -47,7 +41,7 @@ struct MenuBarLabelView: View {
             groupCoordinator.load(groupsStore.selectedGroup)
             // Restore the previously selected timer on launch (or a reasonable default on first launch).
             guard !timerModel.hasLoadedTimer, let preset = presetsStore.selectedPreset else { return }
-            timerModel.load(preset: preset)
+            timerModel.load(preset)
         }
         .onChange(of: groupsStore.selectedGroupID) { _, _ in
             groupCoordinator.load(groupsStore.selectedGroup)
@@ -57,19 +51,31 @@ struct MenuBarLabelView: View {
         }
     }
 
+    private func timerImage(for timerModel: TimerModel) -> some View {
+        var img: Image;
+        if (timerModel.preset.type == .countUp) {
+            img = Image(systemName: "stopwatch")
+        } else {
+            img = Image(nsImage: ringImage(progress: timerModel.progress))
+        }
+        return img.frame(width: iconSize, height: iconSize)
+    }
+
     private func groupLabel(for groupModel: TimerGroupModel) -> Text {
         var label = Text("")
         for (index, definition) in groupModel.group.timers.enumerated() {
-            let timer = groupModel.timers[index]
-            let icon = timer.timerType == .countUp
+            let timer = groupModel.timerModels[index]
+            let icon = timer.preset.type == .countUp
                 ? Image(systemName: "stopwatch")
                 : Image(nsImage: ringImage(progress: timer.progress))
-            let time = timer.timerType == .countUp
+//            let icon = timerImage(for: timerModel)
+            let time = timer.preset.type == .countUp
                 ? timer.remaining.formattedElapsedClock
                 : timer.remaining.formattedClock
+            let timerName = definition.name ?? ""
             let name: String = switch settings.groupTimerNameDisplay {
-            case .wholeLabel: definition.name + " "
-            case .firstCharacter: String(definition.name.prefix(1)) + " "
+            case .wholeLabel: timerName + " " // TODO improve check for group-timer
+            case .firstCharacter: String(timerName.prefix(1)) + " "
             case .none: ""
             }
             var segment = Text(name)
@@ -86,7 +92,7 @@ struct MenuBarLabelView: View {
     private func coloredGroupLabelImage(for groupModel: TimerGroupModel) -> NSImage {
         let renderer = ImageRenderer(content: ColoredGroupMenuBarLabel(
             group: groupModel.group,
-            timers: groupModel.timers,
+            timers: groupModel.timerModels,
             nameDisplay: settings.groupTimerNameDisplay,
             showProgress: settings.showGroupTimerProgress,
             ringImage: ringImage
@@ -122,24 +128,26 @@ private struct ColoredGroupMenuBarLabel: View {
         HStack(spacing: 12) {
             ForEach(Array(zip(group.timers.indices, group.timers)), id: \.1.id) { index, definition in
                 let timer = timers[index]
+                let timerName = definition.name ?? "" // TODO?
                 let name: String = switch nameDisplay {
-                case .wholeLabel: definition.name
-                case .firstCharacter: String(definition.name.prefix(1))
+                case .wholeLabel: timerName
+                case .firstCharacter: String(timerName.prefix(1))
                 case .none: ""
                 }
                 HStack(spacing: 2) {
                     Text(name)
                     if showProgress {
-                        if timer.timerType == .countUp {
+                        if timer.preset.type == .countUp {
                             Image(systemName: "stopwatch")
                         } else {
                             Image(nsImage: ringImage(timer.progress))
                         }
                     }
-                    Text(timer.timerType == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock)
-                        .monospacedDigit()
+                    Text(timer.preset.type == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock)
+                       .monospacedDigit()
                 }
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(Font(NSFont.menuBarFont(ofSize: 0)))
+               .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(definition.color)
             }
         }
