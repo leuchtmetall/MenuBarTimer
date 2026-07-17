@@ -33,7 +33,7 @@ struct PresetsListView: View {
                     isEditing.toggle()
                     resetDrag()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glass)
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -47,9 +47,11 @@ struct PresetsListView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                    Text(" ")
                 }
                 .menuIndicator(.hidden)
-                .frame(width: 22)
+                .frame(width: 22, height: 22)
+                .padding(.trailing, 3)
             }
 
             ScrollView {
@@ -175,28 +177,22 @@ struct PresetsListView: View {
     private func row(for preset: TimerPreset) -> some View {
         if isEditing {
             HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 18, height: 24)
-                    .contentShape(Rectangle())
-                    .help("Drag to rearrange preset")
-                    .gesture(reorderGesture(for: preset))
-
-                if preset.isStopwatch {
-                    Label("Stopwatch", systemImage: "stopwatch")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    DurationPicker(duration: durationBinding(for: preset))
-                }
-
                 if !preset.isStopwatch {
-                    Button {
-                        presetsStore.removePreset(preset)
-                    } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 24)
+                        .contentShape(Rectangle())
+                        .help("Drag to rearrange preset")
+                        .gesture(reorderGesture(for: preset))
+                    DurationPicker(duration: durationBinding(for: preset))
+                    Button(action: {presetsStore.removePreset(preset)}) {
                         Image(systemName: "minus.circle.fill")
                             .foregroundStyle(.red)
                     }
                     .buttonStyle(.plain)
+                } else {
+                    Label("Stopwatch", systemImage: "stopwatch")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .offset(y: rowOffset(for: preset))
