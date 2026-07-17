@@ -119,11 +119,11 @@ struct PresetsListView: View {
                     }
                     ForEach(group.timers) { timer in
                         HStack(spacing: 5) {
-                            TextField("Timer name", text: timerNameBinding(timer, in: group))
                             Picker("Type", selection: timerTypeBinding(timer, in: group)) {
-                                Text("Down").tag(TimerType.countdown)
-                                Text("Up").tag(TimerType.countUp)
-                            }.labelsHidden().frame(width: 65)
+                                Image(systemName: "arrow.up").imageScale(.small).tag(TimerType.countUp)
+                                Image(systemName: "arrow.down").imageScale(.small).tag(TimerType.countdown)
+                            }.labelsHidden().frame(width: 45)
+                            TextField("Timer name", text: timerNameBinding(timer, in: group))
                             if timer.type == .countdown {
                                 DurationPicker(duration: timerDurationBinding(timer, in: group))
                             }
