@@ -93,4 +93,69 @@ struct MenuBarTimerTests {
 
         defaults.removePersistentDomain(forName: "TimerFinishNotificationTests")
     }
+
+    @Test func groupLabelHitTestFindsTimerUnderCursor() {
+        let ids = [UUID(), UUID(), UUID()]
+        // 100pt of content centered in a 120pt wide status item, so the content starts at x = 10.
+        let layout = makeLayout(ids: ids, widths: [40, 30, 30], contentWidth: 100)
+
+        #expect(layout.timerID(atX: 11, boundsWidth: 120) == ids[0])
+        #expect(layout.timerID(atX: 49, boundsWidth: 120) == ids[0])
+        #expect(layout.timerID(atX: 51, boundsWidth: 120) == ids[1])
+        #expect(layout.timerID(atX: 79, boundsWidth: 120) == ids[1])
+        #expect(layout.timerID(atX: 81, boundsWidth: 120) == ids[2])
+    }
+
+    @Test func groupLabelHitTestClampsToNearestTimer() {
+        let ids = [UUID(), UUID()]
+        let layout = makeLayout(ids: ids, widths: [50, 50], contentWidth: 100)
+
+        // Clicks in the status item's edge padding still act on the closest timer.
+        #expect(layout.timerID(atX: 0, boundsWidth: 120) == ids[0])
+        #expect(layout.timerID(atX: -5, boundsWidth: 120) == ids[0])
+        #expect(layout.timerID(atX: 120, boundsWidth: 120) == ids[1])
+    }
+
+    @Test func groupLabelHitTestNormalizesMeasuredWidths() {
+        let ids = [UUID(), UUID()]
+        // Measured segments sum to 50 but the laid out label is 100 wide, so the boundary belongs
+        // at 50 rather than at the measured 20.
+        let layout = makeLayout(ids: ids, widths: [20, 30], contentWidth: 100)
+
+        #expect(layout.timerID(atX: 39, boundsWidth: 100) == ids[0])
+        #expect(layout.timerID(atX: 41, boundsWidth: 100) == ids[1])
+    }
+
+    @Test func groupLabelHitTestHandlesDegenerateGroups() {
+        #expect(MenuBarLabelLayout().timerID(atX: 20, boundsWidth: 120) == nil)
+
+        let id = UUID()
+        let single = makeLayout(ids: [id], widths: [40], contentWidth: 40)
+        #expect(single.timerID(atX: 0, boundsWidth: 120) == id)
+        #expect(single.timerID(atX: 119, boundsWidth: 120) == id)
+
+        single.clear()
+        #expect(single.timerID(atX: 60, boundsWidth: 120) == nil)
+    }
+
+    @Test func groupLabelSegmentsSplitTheGapsBetweenTimers() {
+        let ids = [UUID(), UUID(), UUID()]
+        let segments = MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10, 10], gap: 4, leadingInset: 2)
+
+        // The 4pt gaps are shared evenly, so the segments tile the label without dead zones.
+        #expect(segments.map(\.width) == [14, 14, 12])
+        let totalWidth: CGFloat = segments.reduce(0) { $0 + $1.width }
+        #expect(totalWidth == 40) // leading inset + 3 timers + 2 gaps
+        // A widths/ids mismatch would misattribute clicks, so it yields no segments at all.
+        #expect(MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10], gap: 4).isEmpty)
+    }
+
+    private func makeLayout(ids: [UUID], widths: [CGFloat], contentWidth: CGFloat) -> MenuBarLabelLayout {
+        let layout = MenuBarLabelLayout()
+        layout.update(
+            segments: ids.indices.map { MenuBarLabelLayout.Segment(timerID: ids[$0], width: widths[$0]) },
+            contentWidth: contentWidth
+        )
+        return layout
+    }
 }

@@ -20,11 +20,14 @@ import AppKit
 /// completely untouched here, so `MenuBarExtra`'s own click handling (opening/closing the
 /// popover) keeps working unmodified.
 final class RightClickHandlerView: NSView {
-    var onRightMouseDown: (() -> Void)?
+    /// Called with the click location in this view's own coordinate space. Because the view is
+    /// sized to (and autoresizes with) the status item button's bounds, that is also the button's
+    /// coordinate space, which is what `MenuBarLabelLayout` hit-tests against.
+    var onRightMouseDown: ((CGPoint) -> Void)?
 
     override func rightMouseDown(with event: NSEvent) {
         if let onRightMouseDown {
-            onRightMouseDown()
+            onRightMouseDown(convert(event.locationInWindow, from: nil))
         } else {
             super.rightMouseDown(with: event)
         }
