@@ -68,4 +68,29 @@ struct MenuBarTimerTests {
 
         defaults.removePersistentDomain(forName: "StopwatchTests")
     }
+
+    @Test func timerFinishNotificationFollowsSetting() {
+        let defaults = UserDefaults(suiteName: "TimerFinishNotificationTests")!
+        defaults.removePersistentDomain(forName: "TimerFinishNotificationTests")
+        let settings = AppSettings(userDefaults: defaults)
+        var notifiedPresets: [TimerPreset] = []
+        let preset = TimerPreset(seconds: 60)
+        let timer = TimerModel(userDefaults: defaults) { notifiedPresets.append($0) }
+
+        #expect(settings.showTimerFinishNotification)
+
+        timer.load(preset)
+        timer.start()
+        timer.setProgress(1)
+
+        #expect(notifiedPresets == [preset])
+
+        settings.showTimerFinishNotification = false
+        timer.primaryButtonTapped()
+        timer.setProgress(1)
+
+        #expect(notifiedPresets == [preset])
+
+        defaults.removePersistentDomain(forName: "TimerFinishNotificationTests")
+    }
 }

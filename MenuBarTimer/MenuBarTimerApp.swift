@@ -17,6 +17,10 @@ struct MenuBarTimerApp: App {
     @StateObject private var settings = AppSettings()
     @State private var isMenuPresented = false
 
+    init() {
+        TimerCompletionNotifier.configure()
+    }
+
     var body: some Scene {
 
         let popoverView = TimerPopoverView()

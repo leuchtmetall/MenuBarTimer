@@ -1,5 +1,4 @@
 ToDo:
-- notification when done
 - timer groups
   - bug: right click status bar doesn't work
   - custom colors

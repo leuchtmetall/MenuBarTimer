@@ -42,6 +42,7 @@ final class TimerModel: Identifiable, ObservableObject {
 
     private let userDefaults: UserDefaults
     private let savedStateKey: String
+    private let onFinish: (TimerPreset) -> Void
     private var terminationObserver: NSObjectProtocol?
     private var timer: Timer?
     private var undoTimer: Timer?
@@ -49,10 +50,16 @@ final class TimerModel: Identifiable, ObservableObject {
     private var startDate: Date?
     private var adjustmentOriginalEndDate: Date?
 
-    init(id: UUID = UUID(), userDefaults: UserDefaults = .standard, savedStateKey: String = TimerModel.defaultSavedStateKey) {
+    init(
+        id: UUID = UUID(),
+        userDefaults: UserDefaults = .standard,
+        savedStateKey: String = TimerModel.defaultSavedStateKey,
+        onFinish: @escaping (TimerPreset) -> Void = TimerCompletionNotifier.send
+    ) {
         self.id = id
         self.userDefaults = userDefaults
         self.savedStateKey = savedStateKey
+        self.onFinish = onFinish
         restoreState()
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
@@ -309,5 +316,8 @@ final class TimerModel: Identifiable, ObservableObject {
         state = .finished
         saveState()
         SoundPlayer.playTimerCompleteSound()
+        if AppSettings.timerFinishNotificationsEnabled(in: userDefaults) {
+            onFinish(preset)
+        }
     }
 }
