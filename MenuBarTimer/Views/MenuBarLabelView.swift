@@ -171,6 +171,7 @@ struct MenuBarLabelView: View {
 private struct ColoredGroupMenuBarLabel: View {
     static let spacing: CGFloat = 12
     static let leadingPadding: CGFloat = 4
+    static let verticalPadding: CGFloat = 2
 
     let items: [GroupTimerLabelItem]
 
@@ -182,6 +183,10 @@ private struct ColoredGroupMenuBarLabel: View {
         }
         .fixedSize()
         .padding(.leading, Self.leadingPadding)
+        // `ImageRenderer` clips to the view's bounds. The items pull their text up with negative
+        // top padding, which lets tall emoji glyphs (e.g. 👦🏻, 💼) poke out above the label and get
+        // cut off. Symmetric headroom keeps them in the image without moving the label off-center.
+        .padding(.vertical, Self.verticalPadding)
     }
 }
 
@@ -203,7 +208,7 @@ private struct GroupTimerLabelItem: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Text(name).padding(.top, -2).padding(.leading, -4)
+           Text(name).padding(.top, -2).padding(.leading, -4)
             if showProgress {
                 if isStopwatch {
                     Image(systemName: "stopwatch")
