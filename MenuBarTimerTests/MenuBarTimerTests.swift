@@ -113,6 +113,18 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerFinishNotificationTests")
     }
 
+    @Test func compactColoredLabelsSettingIsPersisted() {
+        let defaults = UserDefaults(suiteName: "CompactColoredLabelsTests")!
+        defaults.removePersistentDomain(forName: "CompactColoredLabelsTests")
+
+        #expect(AppSettings(userDefaults: defaults).useCompactColoredLabels == false)
+
+        AppSettings(userDefaults: defaults).useCompactColoredLabels = true
+        #expect(AppSettings(userDefaults: defaults).useCompactColoredLabels)
+
+        defaults.removePersistentDomain(forName: "CompactColoredLabelsTests")
+    }
+
     @Test func groupLabelHitTestFindsTimerUnderCursor() {
         let ids = [UUID(), UUID(), UUID()]
         // 100pt of content centered in a 120pt wide status item, so the content starts at x = 10.

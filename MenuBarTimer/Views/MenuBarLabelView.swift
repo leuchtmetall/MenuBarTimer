@@ -23,6 +23,8 @@ struct MenuBarLabelView: View {
     let layout: MenuBarLabelLayout
 
     private let iconSize: CGFloat = 18
+    /// Progress ring size in the compact colored group label.
+    private let compactIconSize: CGFloat = 14
     /// Separates two timers in the plain-text group label.
     private static let groupLabelSeparator = "   "
 
@@ -64,7 +66,7 @@ struct MenuBarLabelView: View {
         if (timerModel.preset.isStopwatch) {
             img = Image(systemName: "stopwatch")
         } else {
-            img = Image(nsImage: ringImage(progress: timerModel.progress))
+            img = Image(nsImage: ringImage(progress: timerModel.progress, size: iconSize))
         }
         return img.frame(width: iconSize, height: iconSize)
     }
@@ -108,6 +110,8 @@ struct MenuBarLabelView: View {
     }
 
     private func coloredGroupLabelImage(for groupModel: TimerGroupModel) -> NSImage {
+        let isCompact = settings.useCompactColoredLabels
+        let ringSize = isCompact ? compactIconSize : iconSize
         let items = groupModel.timerModels.map { timerModel in
             GroupTimerLabelItem(
                 name: displayName(for: timerModel),
@@ -116,7 +120,8 @@ struct MenuBarLabelView: View {
                 isStopwatch: timerModel.preset.isStopwatch,
                 progress: timerModel.progress,
                 showProgress: settings.showGroupTimerProgress,
-                ringImage: ringImage
+                isCompact: isCompact,
+                ringImage: { ringImage(progress: $0, size: ringSize) }
             )
         }
 
@@ -138,15 +143,15 @@ struct MenuBarLabelView: View {
         return image
     }
 
-    private func ringImage(progress: Double) -> NSImage {
+    private func ringImage(progress: Double, size: CGFloat) -> NSImage {
         let renderer = ImageRenderer(content:
             PieProgressView(progress: progress)
                 .padding(1)
-                .frame(width: iconSize, height: iconSize)
+                .frame(width: size, height: size)
         )
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        renderer.proposedSize = ProposedViewSize(width: iconSize, height: iconSize)
-        let image = renderer.nsImage ?? NSImage(size: NSSize(width: iconSize, height: iconSize))
+        renderer.proposedSize = ProposedViewSize(width: size, height: size)
+        let image = renderer.nsImage ?? NSImage(size: NSSize(width: size, height: size))
         image.isTemplate = true
         return image
     }
@@ -189,7 +194,12 @@ private struct GroupTimerLabelItem: View {
     let isStopwatch: Bool
     let progress: Double
     let showProgress: Bool
+    let isCompact: Bool
     let ringImage: (Double) -> NSImage
+
+    private static let font = NSFont.menuBarFont(ofSize: 0)
+    /// Seconds are shrunk in compact mode once hours are visible, to save menu bar space.
+    private static let compactSecondsFont = NSFont.menuBarFont(ofSize: font.pointSize * 0.75)
 
     var body: some View {
         HStack(spacing: 2) {
@@ -201,14 +211,54 @@ private struct GroupTimerLabelItem: View {
                     Image(nsImage: ringImage(progress))
                 }
             }
-            Text(timeString)
+            timeText
                 .monospacedDigit()
                 .padding(.top, -2)
                 .padding(.trailing, 1)
                 .padding(.leading, -0.5)
         }
-        .font(Font(NSFont.menuBarFont(ofSize: 0)))
+        .font(Font(Self.font))
         .foregroundStyle(color)
         .padding(.trailing, 1)
     }
+
+    /// `h:mm:ss` is split into `h:mm` + `:ss` in compact mode so the seconds can be set smaller.
+    /// Concatenated `Text` shares a baseline, so the smaller seconds sit on the same line.
+    private var timeText: Text {
+        guard isCompact,
+              timeString.filter({ $0 == ":" }).count == 2,
+              let secondsStart = timeString.lastIndex(of: ":") else {
+            return Text(timeString)
+        }
+        let hoursAndMinutes = Text(timeString[..<secondsStart])
+        let seconds = Text(timeString[secondsStart...])
+            .font(Font(Self.compactSecondsFont))
+            .monospacedDigit()
+        return Text("\(hoursAndMinutes)\(seconds)")
+    }
+}
+
+#Preview("Colored group label: regular vs compact") {
+    let ring: (CGFloat) -> (Double) -> NSImage = { size in
+        { progress in
+            let renderer = ImageRenderer(content:
+                PieProgressView(progress: progress).padding(1).frame(width: size, height: size)
+            )
+            renderer.scale = 2
+            let image = renderer.nsImage ?? NSImage(size: NSSize(width: size, height: size))
+            image.isTemplate = true
+            return image
+        }
+    }
+    let item: (Bool, String) -> GroupTimerLabelItem = { isCompact, time in
+        GroupTimerLabelItem(
+            name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3,
+            showProgress: true, isCompact: isCompact, ringImage: ring(isCompact ? 14 : 18)
+        )
+    }
+    VStack(alignment: .leading, spacing: 8) {
+        HStack { item(false, "1:23:45"); item(false, "12:34") }
+        HStack { item(true, "1:23:45"); item(true, "12:34") }
+    }
+    .padding()
 }

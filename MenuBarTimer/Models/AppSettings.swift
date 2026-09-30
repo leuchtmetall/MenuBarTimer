@@ -33,6 +33,10 @@ final class AppSettings: ObservableObject {
     @Published var useGroupTimerColors: Bool {
         didSet { userDefaults.set(useGroupTimerColors, forKey: Self.groupTimerColorsKey) }
     }
+    /// Colored group labels only: a smaller progress ring, and smaller seconds once hours are shown.
+    @Published var useCompactColoredLabels: Bool {
+        didSet { userDefaults.set(useCompactColoredLabels, forKey: Self.compactColoredLabelsKey) }
+    }
     @Published var showTimerFinishNotification: Bool {
         didSet { userDefaults.set(showTimerFinishNotification, forKey: Self.timerFinishNotificationKey) }
     }
@@ -41,6 +45,7 @@ final class AppSettings: ObservableObject {
     private static let legacyAbbreviateNamesKey = "abbreviateGroupTimerNames"
     private static let showProgressKey = "showGroupTimerProgress"
     private static let groupTimerColorsKey = "useGroupTimerColors"
+    private static let compactColoredLabelsKey = "useCompactColoredLabels"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
     private let userDefaults: UserDefaults
 
@@ -56,6 +61,7 @@ final class AppSettings: ObservableObject {
         }
         showGroupTimerProgress = userDefaults.object(forKey: Self.showProgressKey) as? Bool ?? true
         useGroupTimerColors = userDefaults.object(forKey: Self.groupTimerColorsKey) as? Bool ?? false
+        useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
         showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true
     }
 

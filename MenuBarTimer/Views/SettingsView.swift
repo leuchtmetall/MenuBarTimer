@@ -23,6 +23,9 @@ struct SettingsView: View {
                 }
                 Toggle("Show progress circle for group timers", isOn: $settings.showGroupTimerProgress).disabled(!$settings.useGroupTimerColors.wrappedValue)
                 Toggle("Use timer colors in the menu bar", isOn: $settings.useGroupTimerColors)
+                Toggle("Compact colored timers", isOn: $settings.useCompactColoredLabels)
+                    .disabled(!settings.useGroupTimerColors)
+                    .help("Smaller progress circles, and smaller seconds when hours are shown")
                 Toggle("Show a notification when a timer finishes", isOn: $settings.showTimerFinishNotification)
                     .onChange(of: settings.showTimerFinishNotification) { _, isEnabled in
                         if isEnabled {
