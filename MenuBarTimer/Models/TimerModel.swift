@@ -211,6 +211,7 @@ final class TimerModel: Identifiable, ObservableObject {
         state = .running
         clearAdjustmentUndo()
         scheduleTimer()
+        saveState()
     }
 
     private func restoreState() {

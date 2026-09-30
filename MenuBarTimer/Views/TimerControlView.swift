@@ -133,6 +133,15 @@ private struct GroupTimerControlPanel: View {
                     Text(statusText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    if timer.canUndoAdjustment {
+                        Button(action: { timer.undoAdjustment() }) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .accessibilityLabel("Undo \(definition.name ?? "timer") adjustment")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
             }
 
