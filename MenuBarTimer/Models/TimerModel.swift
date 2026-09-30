@@ -106,6 +106,15 @@ final class TimerModel: Identifiable, ObservableObject {
         saveState()
     }
 
+    /// Replaces the loaded preset's display fields (name, color) without touching the timer's
+    /// progress or state. Changes to duration or type need `load(_:)` instead.
+    func updateDisplayDetails(from timerPreset: TimerPreset) {
+        guard timerPreset.name != preset.name || timerPreset.colorName != preset.colorName else { return }
+        preset.name = timerPreset.name
+        preset.colorName = timerPreset.colorName
+        saveState()
+    }
+
     /// Starts the timer from its current position.
     func start() {
         guard preset.type == .countUp || remaining > 0 else { return }

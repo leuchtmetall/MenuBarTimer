@@ -1,5 +1,5 @@
 > [!NOTE]
-> Large parts of the code in this project are AI generated.
+> AI usage disclosure: Large parts of the code in this project are AI generated.
 
 # An app to show various timers in the macOS menu bar.
 This app is a replacement for a similar, but not longer maintained, app, that I was using before, with a few features added that I wanted for my personal use.

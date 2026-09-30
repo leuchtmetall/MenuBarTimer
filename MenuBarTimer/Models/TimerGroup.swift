@@ -194,6 +194,9 @@ final class TimerGroupModel: ObservableObject {
             let previous = self.group.timers[index]
             if previous.type != definition.type || previous.seconds != definition.seconds {
                 timerModels[index].load(definition)
+            } else {
+                // Name/color edits must reach the timer model too: the menu bar label reads them from there.
+                timerModels[index].updateDisplayDetails(from: definition)
             }
         }
         self.group = group
