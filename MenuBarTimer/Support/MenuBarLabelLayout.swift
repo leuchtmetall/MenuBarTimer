@@ -3,6 +3,7 @@
 //  MenuBarTimer
 //
 
+import CoreGraphics
 import Foundation
 
 /// Where each group timer ended up horizontally inside the menu bar label.
@@ -78,24 +79,50 @@ final class MenuBarLabelLayout {
         }
     }
 
+    /// The result of hit-testing the label: the timer under the cursor and where that timer's part
+    /// of the label is drawn, in the coordinate space of the status item button.
+    struct Hit: Equatable {
+        let timerID: UUID
+        let minX: CGFloat
+        let width: CGFloat
+    }
+
     /// The timer whose segment contains `x`, in the coordinate space of the status item button.
     ///
-    /// The label content is assumed to be centered in the button. Clicks outside the content —
-    /// the button's edge padding, or anywhere at all when the measurement came out wider than the
-    /// button — clamp to the nearest timer, so a right-click on the item is never inert.
-    /// Returns `nil` only when there is nothing to hit, i.e. a group with no timers.
-    func timerID(atX x: CGFloat, boundsWidth: CGFloat) -> UUID? {
+    /// `contentFrame` is where the button actually draws the label (its image or title rect, see
+    /// `NSCell.imageRect(forBounds:)`). The segments are scaled to fill it, which absorbs any
+    /// difference between how the label was measured and how the status item renders it.
+    /// Without a `contentFrame` the measured content is assumed to be centered in the button.
+    ///
+    /// Clicks outside the content — the button's edge padding, or anywhere at all when the
+    /// measurement came out wider than the button — clamp to the nearest timer, so a right-click on
+    /// the item is never inert. Returns `nil` only when there is nothing to hit, i.e. a group with
+    /// no timers.
+    func hit(atX x: CGFloat, boundsWidth: CGFloat, contentFrame: CGRect? = nil) -> Hit? {
         guard !segments.isEmpty else { return nil }
-        guard segments.count > 1 else { return segments[0].timerID }
 
-        let origin = max((boundsWidth - contentWidth) / 2, 0)
-        let offset = x - origin
-
-        var edge: CGFloat = 0
-        for segment in segments.dropLast() {
-            edge += segment.width
-            if offset < edge { return segment.timerID }
+        let origin: CGFloat
+        let scale: CGFloat
+        if let contentFrame, contentFrame.width > 0, contentWidth > 0 {
+            origin = contentFrame.minX
+            scale = contentFrame.width / contentWidth
+        } else {
+            origin = max((boundsWidth - contentWidth) / 2, 0)
+            scale = 1
         }
-        return segments[segments.count - 1].timerID
+
+        var edge = origin
+        for (index, segment) in segments.enumerated() {
+            let width = segment.width * scale
+            if x < edge + width || index == segments.count - 1 {
+                return Hit(timerID: segment.timerID, minX: edge, width: width)
+            }
+            edge += width
+        }
+        return nil
+    }
+
+    func timerID(atX x: CGFloat, boundsWidth: CGFloat, contentFrame: CGRect? = nil) -> UUID? {
+        hit(atX: x, boundsWidth: boundsWidth, contentFrame: contentFrame)?.timerID
     }
 }

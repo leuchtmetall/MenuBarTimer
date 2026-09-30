@@ -39,26 +39,27 @@ struct MenuBarTimerApp: App {
         }
         .menuBarExtraAccess(isPresented: $isMenuPresented) { statusItem in
             guard let button = statusItem.button else { return }
-            let onRightMouseDown: (CGPoint) -> Void = { point in
+            let handler = button.subviews.compactMap({ $0 as? RightClickHandlerView }).first
+                ?? RightClickHandlerView(frame: button.bounds)
+            if handler.superview == nil { button.addSubview(handler) }
+            handler.frame = button.bounds
+            handler.autoresizingMask = [.width, .height]
+            handler.onRightMouseDown = { [weak handler] point in
+                guard let handler else { return }
+                let contentFrame = handler.labelContentFrame
                 guard let groupModel = groupCoordinator.model else {
                     timerModel.primaryButtonTapped()
+                    let frame = contentFrame ?? handler.bounds
+                    handler.flash(minX: frame.minX, width: frame.width)
                     return
                 }
                 // In group mode the label is one flat Text/Image, so the click position decides
                 // which timer was hit. `start` also pauses the group's other timers.
-                guard let timerID = labelLayout.timerID(atX: point.x, boundsWidth: button.bounds.width),
-                      let definition = groupModel.group.timers.first(where: { $0.id == timerID }) else { return }
+                guard let hit = labelLayout.hit(atX: point.x, boundsWidth: handler.bounds.width, contentFrame: contentFrame),
+                      let definition = groupModel.group.timers.first(where: { $0.id == hit.timerID }) else { return }
                 groupModel.start(definition)
-            }
-            if let handler = button.subviews.compactMap({ $0 as? RightClickHandlerView }).first {
-                handler.frame = button.bounds
-                handler.autoresizingMask = [.width, .height]
-                handler.onRightMouseDown = onRightMouseDown
-            } else {
-                let handler = RightClickHandlerView(frame: button.bounds)
-                handler.autoresizingMask = [.width, .height]
-                handler.onRightMouseDown = onRightMouseDown
-                button.addSubview(handler)
+                let color = settings.useGroupTimerColors && definition.colorName != nil ? NSColor(definition.color) : nil
+                handler.flash(minX: hit.minX, width: hit.width, color: color)
             }
         }
         .menuBarExtraStyle(.window)

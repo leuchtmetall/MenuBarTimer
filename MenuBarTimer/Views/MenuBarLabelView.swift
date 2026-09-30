@@ -35,7 +35,6 @@ struct MenuBarLabelView: View {
                     Image(nsImage: coloredGroupLabelImage(for: groupModel))
                 } else {
                     groupLabel(for: groupModel)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
             } else {
                 HStack {
@@ -96,7 +95,8 @@ struct MenuBarLabelView: View {
         let segments = groupLabelSegments(for: groupModel)
         let text = segments.map(\.text).joined(separator: Self.groupLabelSeparator)
 
-        let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+        // Measure in the font the status item actually draws the title in (see `body`).
+        let font = NSFont.menuBarFont(ofSize: 0)
         layout.update(
             segments: MenuBarLabelLayout.distribute(
                 ids: segments.map(\.id),

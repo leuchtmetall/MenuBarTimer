@@ -5,6 +5,7 @@
 //  Created by Leonhard Massloch on 2026/07/14.
 //
 
+import CoreGraphics
 import Foundation
 import Testing
 @testable import MenuBarTimer
@@ -155,6 +156,40 @@ struct MenuBarTimerTests {
 
         #expect(layout.timerID(atX: 39, boundsWidth: 100) == ids[0])
         #expect(layout.timerID(atX: 41, boundsWidth: 100) == ids[1])
+    }
+
+    @Test func groupLabelHitTestUsesDrawnContentFrame() {
+        let ids = [UUID(), UUID()]
+        // Measured 372pt wide (e.g. with the wrong font), but the button draws the label 300pt wide
+        // starting at x = 10. The segments must follow what is drawn, not the measurement.
+        let layout = makeLayout(ids: ids, widths: [186, 186], contentWidth: 372)
+        let drawn = CGRect(x: 10, y: 0, width: 300, height: 16)
+
+        #expect(layout.timerID(atX: 159, boundsWidth: 320, contentFrame: drawn) == ids[0])
+        #expect(layout.timerID(atX: 161, boundsWidth: 320, contentFrame: drawn) == ids[1])
+        #expect(layout.hit(atX: 200, boundsWidth: 320, contentFrame: drawn)
+            == MenuBarLabelLayout.Hit(timerID: ids[1], minX: 160, width: 150))
+        // Edge padding still clamps to the nearest timer.
+        #expect(layout.timerID(atX: 2, boundsWidth: 320, contentFrame: drawn) == ids[0])
+        #expect(layout.timerID(atX: 318, boundsWidth: 320, contentFrame: drawn) == ids[1])
+    }
+
+    @Test func rightClickIsLocatedOnTheDisplayUnderTheCursor() {
+        // Values from a real two-display setup: the status item window sits 1029pt from the right
+        // edge of both displays' menu bars.
+        let main = CGRect(x: 0, y: 0, width: 2560, height: 1440)
+        let laptop = CGRect(x: 196, y: -982, width: 1512, height: 982)
+        let onMain = CGRect(x: 1214, y: 1407, width: 317, height: 33)
+        let onLaptop = CGRect(x: 362, y: -33, width: 317, height: 33)
+
+        // Window and cursor on the same display.
+        #expect(RightClickHandlerView.windowX(ofScreenX: 1259, windowFrame: onMain,
+                                              windowScreenFrame: main, mouseScreenFrame: main) == 45)
+        // The window is still on the laptop display while the click happened on the main one.
+        #expect(RightClickHandlerView.windowX(ofScreenX: 1259, windowFrame: onLaptop,
+                                              windowScreenFrame: laptop, mouseScreenFrame: main) == 45)
+        #expect(RightClickHandlerView.windowX(ofScreenX: 407, windowFrame: onMain,
+                                              windowScreenFrame: main, mouseScreenFrame: laptop) == 45)
     }
 
     @Test func groupLabelHitTestHandlesDegenerateGroups() {
