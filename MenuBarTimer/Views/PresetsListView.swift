@@ -59,6 +59,16 @@ struct PresetsListView: View {
                     ForEach(presetsStore.presets.filter { !$0.isStopwatch }) { preset in
                         row(for: preset)
                     }
+                    if isEditing {
+                        Button {
+                            presetsStore.addPreset()
+                        } label: {
+                            Label("Add Single Timer", systemImage: "plus.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                        .padding(.top, 4)
+                    }
 
                     if let stopwatch = presetsStore.presets.first(where: { $0.isStopwatch }) {
                         Text("Stopwatch")
@@ -87,15 +97,6 @@ struct PresetsListView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.purple)
-                        .padding(.top, 4)
-
-                        Button {
-                            presetsStore.addPreset()
-                        } label: {
-                            Label("Add Preset", systemImage: "plus.circle")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
                         .padding(.top, 4)
                     }
                 }
