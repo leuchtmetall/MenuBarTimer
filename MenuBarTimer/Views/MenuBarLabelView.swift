@@ -119,6 +119,7 @@ struct MenuBarLabelView: View {
                 color: timerModel.preset.color,
                 isStopwatch: timerModel.preset.isStopwatch,
                 progress: timerModel.progress,
+                isActive: timerModel.state == .running,
                 showProgress: settings.showGroupTimerProgress,
                 isCompact: isCompact,
                 ringImage: { ringImage(progress: $0, size: ringSize) }
@@ -198,6 +199,8 @@ private struct GroupTimerLabelItem: View {
     let color: Color
     let isStopwatch: Bool
     let progress: Double
+    /// The running timer gets a tinted background so it stands out from the paused ones.
+    let isActive: Bool
     let showProgress: Bool
     let isCompact: Bool
     let ringImage: (Double) -> NSImage
@@ -225,6 +228,16 @@ private struct GroupTimerLabelItem: View {
         .font(Font(Self.font))
         .foregroundStyle(color)
         .padding(.trailing, 1)
+        // A background never changes the item's size, so the right-click hit-testing widths
+        // measured in `MenuBarLabelView` stay valid.
+        .background {
+            if isActive {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(color.opacity(0.2))
+                    .padding(.horizontal, -3)
+                    .offset(x: -1, y: -1)
+            }
+        }
     }
 
     /// `h:mm:ss` is split into `h:mm` + `:ss` in compact mode so the seconds can be set smaller.
@@ -257,7 +270,7 @@ private struct GroupTimerLabelItem: View {
     }
     let item: (Bool, String) -> GroupTimerLabelItem = { isCompact, time in
         GroupTimerLabelItem(
-            name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3,
+            name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3, isActive: false,
             showProgress: true, isCompact: isCompact, ringImage: ring(isCompact ? 14 : 18)
         )
     }
