@@ -37,6 +37,10 @@ final class AppSettings: ObservableObject {
     @Published var useCompactColoredLabels: Bool {
         didSet { userDefaults.set(useCompactColoredLabels, forKey: Self.compactColoredLabelsKey) }
     }
+    /// Tint each group timer's start/pause button with the timer's color.
+    @Published var useTimerColorForButtons: Bool {
+        didSet { userDefaults.set(useTimerColorForButtons, forKey: Self.timerColorButtonsKey) }
+    }
     @Published var showTimerFinishNotification: Bool {
         didSet { userDefaults.set(showTimerFinishNotification, forKey: Self.timerFinishNotificationKey) }
     }
@@ -46,6 +50,7 @@ final class AppSettings: ObservableObject {
     private static let showProgressKey = "showGroupTimerProgress"
     private static let groupTimerColorsKey = "useGroupTimerColors"
     private static let compactColoredLabelsKey = "useCompactColoredLabels"
+    private static let timerColorButtonsKey = "useTimerColorForButtons"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
     private let userDefaults: UserDefaults
 
@@ -62,6 +67,7 @@ final class AppSettings: ObservableObject {
         showGroupTimerProgress = userDefaults.object(forKey: Self.showProgressKey) as? Bool ?? true
         useGroupTimerColors = userDefaults.object(forKey: Self.groupTimerColorsKey) as? Bool ?? false
         useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
+        useTimerColorForButtons = userDefaults.object(forKey: Self.timerColorButtonsKey) as? Bool ?? true
         showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true
     }
 

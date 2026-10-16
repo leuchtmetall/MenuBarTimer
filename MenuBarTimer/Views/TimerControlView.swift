@@ -108,6 +108,7 @@ private struct GroupTimerControlPanel: View {
     let definition: TimerPreset
     @ObservedObject var timer: TimerModel
     let onStart: () -> Void
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         VStack(spacing: 10) {
@@ -151,6 +152,7 @@ private struct GroupTimerControlPanel: View {
                         .accessibilityLabel(timer.state == .running ? "Pause \(definition.name)" : "Start \(definition.name)")
                 }
                 .buttonStyle(.glassProminent)
+                .tint(settings.useTimerColorForButtons ? definition.color : nil)
                 .disabled(!timer.hasLoadedTimer)
 
                 Button(action: { timer.stop() }) {
@@ -181,4 +183,5 @@ private struct GroupTimerControlPanel: View {
 #Preview {
     TimerControlView(timerModel: TimerModel())
         .environmentObject(TimerGroupCoordinator())
+        .environmentObject(AppSettings())
 }
