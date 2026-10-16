@@ -72,7 +72,7 @@ struct MenuBarLabelView: View {
 
     /// The name prefix shown for a group timer, per the current display setting.
     private func displayName(for timerModel: TimerModel) -> String {
-        let timerName = timerModel.preset.name ?? ""
+        let timerName = timerModel.preset.name
         switch settings.groupTimerNameDisplay {
         case .wholeLabel: return timerName
         case .firstCharacter: return String(timerName.prefix(1))

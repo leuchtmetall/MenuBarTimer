@@ -47,7 +47,7 @@ private struct SingleTimerControlView: View {
                             Image(systemName: "arrow.uturn.backward")
                                 .accessibilityLabel("Undo timer adjustment")
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.glass)
                         .controlSize(.small)
                     }
                 }
@@ -58,14 +58,14 @@ private struct SingleTimerControlView: View {
                     Label(primaryButtonTitle, systemImage: primaryButtonIcon)
                         .frame(minWidth: 72)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .disabled(!timerModel.hasLoadedTimer)
 
                 Button(action: { timerModel.stop() }) {
                     Label("Stop", systemImage: "stop.fill")
                         .frame(minWidth: 72)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .disabled(!timerModel.hasLoadedTimer)
             }
         }
@@ -111,7 +111,7 @@ private struct GroupTimerControlPanel: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Text(definition.name ?? "")
+            Text(definition.name)
                 .font(.headline)
                 .foregroundStyle(definition.color)
                 .lineLimit(1)
@@ -137,9 +137,9 @@ private struct GroupTimerControlPanel: View {
                     if timer.canUndoAdjustment {
                         Button(action: { timer.undoAdjustment() }) {
                             Image(systemName: "arrow.uturn.backward")
-                                .accessibilityLabel("Undo \(definition.name ?? "timer") adjustment")
+                                .accessibilityLabel("Undo \(definition.name) adjustment")
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.glass)
                         .controlSize(.small)
                     }
                 }
@@ -150,14 +150,14 @@ private struct GroupTimerControlPanel: View {
                     Image(systemName: timer.state == .running ? "pause.fill" : "play.fill")
                         .accessibilityLabel(timer.state == .running ? "Pause \(definition.name)" : "Start \(definition.name)")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .disabled(!timer.hasLoadedTimer)
 
                 Button(action: { timer.stop() }) {
                     Image(systemName: "stop.fill")
                         .accessibilityLabel("Stop \(definition.name)")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .disabled(!timer.hasLoadedTimer)
             }
         }

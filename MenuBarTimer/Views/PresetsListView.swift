@@ -32,10 +32,7 @@ struct PresetsListView: View {
                 Button(isEditing ? "Done" : "Edit") {
                     isEditing.toggle()
                     resetDrag()
-                }
-                .buttonStyle(.glass)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                }.buttonStyle(.glass)
 
                 Menu {
                     SettingsLink {
@@ -46,11 +43,15 @@ struct PresetsListView: View {
                         NSApplication.shared.terminate(nil)
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
-                    Text(" ")
+                    Image(systemName: "ellipsis")
+                        .frame(height: 13)
+                        .padding(.all, 5)
+                        .glassEffect(.regular.interactive(), in: .circle)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
                 .menuIndicator(.hidden)
-                .frame(width: 22, height: 22)
+                .frame(width: 22)
                 .padding(.trailing, 3)
             }
 
@@ -161,7 +162,7 @@ struct PresetsListView: View {
                         }
                         HStack(spacing: 8) {
                             ForEach(group.timers) { timer in
-                                Text((timer.name ?? "") + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
+                                Text(timer.name + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
                                     .foregroundStyle(timer.color)
                                     .font(.caption)
                             }
@@ -321,10 +322,10 @@ struct PresetsListView: View {
     }
 
     private func timerNameBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<String> {
-        let inner: Binding<String?> = groupBinding(timer, in: group, keyPath: \.name)
+        let inner: Binding<String> = groupBinding(timer, in: group, keyPath: \.name)
         return Binding(
-            get: { inner.wrappedValue ?? "" },
-            set: { inner.wrappedValue = $0.isEmpty ? nil : $0 }
+            get: { inner.wrappedValue },
+            set: { inner.wrappedValue = $0.isEmpty ? "" : $0 }
         )
     }
 

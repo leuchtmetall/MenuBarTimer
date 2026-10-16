@@ -20,11 +20,7 @@ enum TimerCompletionNotifier {
 
     static func send(for preset: TimerPreset) {
         let content = UNMutableNotificationContent()
-        if let name = preset.name, !name.isEmpty {
-            content.title = "\(name) finished"
-        } else {
-            content.title = "Timer finished"
-        }
+        content.title = "\(preset.name.isEmpty ? "Timer" : preset.name) finished"
         content.body = "Your countdown has reached zero."
 
         let request = UNNotificationRequest(

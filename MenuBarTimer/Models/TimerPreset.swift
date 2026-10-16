@@ -18,14 +18,14 @@ struct TimerPreset: Identifiable, Codable, Equatable {
     var seconds: TimeInterval
     var type: TimerType
     // group timer specific
-    var name: String?
+    var name: String
     var colorName: String?
 
     init(id: UUID = UUID(), seconds: TimeInterval, type: TimerType = .countdown, name: String? = nil, colorName: String? = nil) {
         self.id = id
         self.seconds = seconds
         self.type = type
-        self.name = name
+        self.name = name ?? ""
         self.colorName = colorName
     }
     

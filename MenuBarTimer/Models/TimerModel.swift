@@ -54,12 +54,12 @@ final class TimerModel: Identifiable, ObservableObject {
         id: UUID = UUID(),
         userDefaults: UserDefaults = .standard,
         savedStateKey: String = TimerModel.defaultSavedStateKey,
-        onFinish: @escaping (TimerPreset) -> Void = TimerCompletionNotifier.send
+        onFinish: ((TimerPreset) -> Void)? = nil
     ) {
         self.id = id
         self.userDefaults = userDefaults
         self.savedStateKey = savedStateKey
-        self.onFinish = onFinish
+        self.onFinish = onFinish ?? { TimerCompletionNotifier.send(for: $0) }
         restoreState()
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
