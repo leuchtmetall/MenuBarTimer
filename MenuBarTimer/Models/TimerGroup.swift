@@ -212,4 +212,13 @@ final class TimerGroupModel: ObservableObject {
     }
 
     func pauseAll() { timerModels.forEach { $0.pause() } }
+
+    /// `true` when every timer is idle, i.e. none has been started, paused or finished since its last reset.
+    var isInInitialState: Bool { timerModels.allSatisfy { $0.state == .idle } }
+
+    /// Stops every timer, resetting each back to its loaded duration.
+    func resetAll() {
+        timerModels.forEach { $0.stop() }
+        activeTimerID = group.timers.first?.id
+    }
 }

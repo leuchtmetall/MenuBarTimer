@@ -49,6 +49,27 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerGroupTests")
     }
 
+    @Test func resettingAllGroupTimersReturnsToInitialState() {
+        let defaults = UserDefaults(suiteName: "TimerGroupResetAllTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupResetAllTests")
+        let first = TimerPreset(seconds: 60, name: "First", colorName: "blue")
+        let second = TimerPreset(seconds: 120, name: "Second", colorName: "green")
+        let model = TimerGroupModel(group: TimerGroup(timers: [first, second]), userDefaults: defaults)
+        #expect(model.isInInitialState)
+
+        model.start(first)
+        model.start(second)
+        #expect(!model.isInInitialState)
+
+        model.resetAll()
+        #expect(model.isInInitialState)
+        #expect(model.timerModels[0].remaining == 60)
+        #expect(model.timerModels[1].remaining == 120)
+        #expect(model.activeTimerID == first.id)
+
+        defaults.removePersistentDomain(forName: "TimerGroupResetAllTests")
+    }
+
     @Test func renamingGroupTimerUpdatesTimerModelWithoutResetting() {
         let defaults = UserDefaults(suiteName: "TimerGroupRenameTests")!
         defaults.removePersistentDomain(forName: "TimerGroupRenameTests")

@@ -90,17 +90,45 @@ private struct TimerGroupControlView: View {
     @ObservedObject var groupModel: TimerGroupModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ForEach(Array(zip(groupModel.group.timers.indices, groupModel.group.timers)), id: \.1.id) { index, definition in
-                GroupTimerControlPanel(
-                    definition: definition,
-                    timer: groupModel.timerModels[index],
-                    onStart: { groupModel.start(definition) }
-                )
+        VStack(alignment: .trailing, spacing: 0) {
+            // Matches the presets list header (same top padding and control size) so this button
+            // lines up with its Edit button. Space is always reserved so the popover doesn't jump.
+            resetButton
+                .opacity(groupModel.isInInitialState ? 0 : 1)
+                .disabled(groupModel.isInInitialState)
+                .accessibilityHidden(groupModel.isInInitialState)
+
+            Spacer(minLength: 12)
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(Array(zip(groupModel.group.timers.indices, groupModel.group.timers)), id: \.1.id) { index, definition in
+                    GroupTimerControlPanel(
+                        definition: definition,
+                        timer: groupModel.timerModels[index],
+                        onStart: { groupModel.start(definition) }
+                    )
+                }
             }
+
+            Spacer(minLength: 12)
+
+            // Invisible counterweight with the button's exact height, so the timers are
+            // centered on the full window height rather than the space below the button.
+            resetButton
+                .hidden()
+                .accessibilityHidden(true)
         }
-        .padding(20)
-        .fixedSize()
+        // Fill the popover's height (it is top-aligned in group mode) so the spacers can
+        // center the timers vertically.
+        .frame(maxHeight: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var resetButton: some View {
+        Button("Reset All Timers") { groupModel.resetAll() }
+            .buttonStyle(.glass)
     }
 }
 

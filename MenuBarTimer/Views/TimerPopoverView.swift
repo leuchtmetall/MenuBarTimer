@@ -13,7 +13,8 @@ struct TimerPopoverView: View {
     @EnvironmentObject var groupCoordinator: TimerGroupCoordinator
 
     var body: some View {
-        HStack(spacing: 0) {
+        // Groups top-align so the "Reset All Timers" button lines up with the presets header.
+        HStack(alignment: groupCoordinator.model != nil ? .top : .center, spacing: 0) {
             TimerControlView(timerModel: timerModel)
             Divider()
             PresetsListView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator)
