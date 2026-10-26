@@ -140,7 +140,7 @@ private final class DurationTextView: NSView {
 
         let fieldRect = bounds.insetBy(dx: 0.5, dy: 0.5)
         let background = NSBezierPath(roundedRect: fieldRect, xRadius: 6, yRadius: 6)
-        NSColor.white.setFill()
+        NSColor.textBackgroundColor.setFill()
         background.fill()
         NSColor.separatorColor.setStroke()
         background.lineWidth = 1
@@ -149,7 +149,7 @@ private final class DurationTextView: NSView {
         let text = formattedDuration
         let normalAttributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor.black
+            .foregroundColor: NSColor.textColor
         ]
         let textSize = (text as NSString).size(withAttributes: normalAttributes)
         let origin = NSPoint(

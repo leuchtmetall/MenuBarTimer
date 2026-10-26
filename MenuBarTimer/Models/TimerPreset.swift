@@ -42,6 +42,9 @@ struct TimerPreset: Identifiable, Codable, Equatable {
         }
     }
 
+    /// The colors new group timers cycle through, in order. All of them are handled by `color`.
+    static let newTimerColorNames = ["blue", "green", "orange", "purple", "red", "pink"]
+
     static var stopwatch: TimerPreset {
         TimerPreset(seconds: 0, type: .countUp)
     }

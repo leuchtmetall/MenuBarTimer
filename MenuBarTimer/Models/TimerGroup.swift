@@ -102,7 +102,7 @@ final class TimerGroupsStore: ObservableObject {
 
     func addTimer(to group: TimerGroup) {
         guard var current = groups.first(where: { $0.id == group.id }) else { return }
-        let colors = ["blue", "green", "orange", "purple", "red", "pink"]
+        let colors = TimerPreset.newTimerColorNames
         current.timers.append(TimerPreset(
             seconds: 5 * 60,
             name: "Timer \(current.timers.count + 1)",
