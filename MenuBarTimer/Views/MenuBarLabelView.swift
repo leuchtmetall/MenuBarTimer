@@ -61,13 +61,10 @@ struct MenuBarLabelView: View {
     }
 
     private func timerImage(for timerModel: TimerModel) -> some View {
-        var img: Image;
-        if (timerModel.preset.isStopwatch) {
-            img = Image(systemName: "stopwatch")
-        } else {
-            img = Image(nsImage: ringImage(progress: timerModel.progress, size: iconSize))
-        }
-        return img.frame(width: iconSize, height: iconSize)
+        let image = timerModel.preset.isStopwatch
+            ? Image(systemName: "stopwatch")
+            : Image(nsImage: ringImage(progress: timerModel.progress, size: iconSize))
+        return image.frame(width: iconSize, height: iconSize)
     }
 
     /// The name prefix shown for a group timer, per the current display setting.

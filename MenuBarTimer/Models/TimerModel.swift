@@ -25,6 +25,7 @@ final class TimerModel: Identifiable, ObservableObject {
         }
     }
 
+    let id: UUID
     @Published private(set) var preset: TimerPreset = TimerPreset(seconds: 5*60)
     @Published private(set) var state: State = .idle
     @Published private(set) var totalDuration: TimeInterval = 0 // TODO get from preset
@@ -156,9 +157,10 @@ final class TimerModel: Identifiable, ObservableObject {
     func pause() {
         guard state == .running else { return }
         clearAdjustmentUndo()
-        if preset.type == .countUp {
-            tick()
-        }
+        // `remaining` is only refreshed once per second, so catch up to the exact pause moment.
+        tick()
+        // A countdown may have run out since the last tick, in which case `tick()` finished it.
+        guard state == .running else { return }
         invalidateTimer()
         endDate = nil
         state = .paused
@@ -302,6 +304,8 @@ final class TimerModel: Identifiable, ObservableObject {
                 self?.tick()
             }
         }
+        // A little leeway lets macOS coalesce wake-ups; the time shown is derived from dates, not ticks.
+        newTimer.tolerance = 0.1
         RunLoop.main.add(newTimer, forMode: .common)
         timer = newTimer
     }

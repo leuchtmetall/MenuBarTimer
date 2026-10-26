@@ -24,7 +24,8 @@ struct MenuBarTimerTests {
         let restoredTimer = TimerModel(userDefaults: defaults)
 
         #expect(restoredTimer.totalDuration == 100)
-        #expect(restoredTimer.remaining == 60)
+        // Pausing captures the exact moment, so the few microseconds since `setProgress` count too.
+        #expect(abs(restoredTimer.remaining - 60) < 0.5)
         #expect(restoredTimer.state == .paused)
 
         defaults.removePersistentDomain(forName: "TimerModelTests")
@@ -266,6 +267,82 @@ struct MenuBarTimerTests {
         #expect(totalWidth == 40) // leading inset + 3 timers + 2 gaps
         // A widths/ids mismatch would misattribute clicks, so it yields no segments at all.
         #expect(MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10], gap: 4).isEmpty)
+    }
+
+    @MainActor @Test func pausingACountdownKeepsTheTimeElapsedSinceTheLastTick() async throws {
+        let defaults = UserDefaults(suiteName: "CountdownPauseTests")!
+        defaults.removePersistentDomain(forName: "CountdownPauseTests")
+        let timer = TimerModel(userDefaults: defaults)
+        timer.load(TimerPreset(seconds: 100))
+
+        timer.start()
+        try await Task.sleep(for: .milliseconds(300))
+        timer.pause()
+
+        // Without catching up on pause, `remaining` would still read 100 (no tick has fired yet).
+        #expect(timer.remaining < 99.8)
+        #expect(timer.state == .paused)
+
+        defaults.removePersistentDomain(forName: "CountdownPauseTests")
+    }
+
+    @Test func groupEditedWhileUnloadedIsAppliedOnLoad() {
+        let defaults = UserDefaults(suiteName: "TimerGroupStaleDefinitionTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupStaleDefinitionTests")
+        let timer = TimerPreset(seconds: 60, name: "Work", colorName: "blue")
+        var group = TimerGroup(name: "Focus", timers: [timer])
+        _ = TimerGroupModel(group: group, userDefaults: defaults)
+
+        // Edited in the presets list while another group (or a preset) was selected.
+        group.timers[0].seconds = 120
+        group.timers[0].name = "Deep Work"
+        let reloaded = TimerGroupModel(group: group, userDefaults: defaults)
+
+        #expect(reloaded.timerModels[0].totalDuration == 120)
+        #expect(reloaded.timerModels[0].preset.name == "Deep Work")
+
+        defaults.removePersistentDomain(forName: "TimerGroupStaleDefinitionTests")
+    }
+
+    @Test func removingGroupTimersDeletesTheirSavedState() {
+        let defaults = UserDefaults(suiteName: "TimerGroupSavedStateCleanupTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupSavedStateCleanupTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        let group = store.groups[0]
+        _ = TimerGroupModel(group: group, userDefaults: defaults)
+        let keys = group.timers.map { TimerGroupModel.savedStateKey(for: $0) }
+        #expect(keys.allSatisfy { defaults.data(forKey: $0) != nil })
+
+        store.removeTimer(group.timers[0], from: group)
+        #expect(defaults.data(forKey: keys[0]) == nil)
+        #expect(defaults.data(forKey: keys[1]) != nil)
+
+        store.remove(store.groups[0])
+        #expect(defaults.data(forKey: keys[1]) == nil)
+
+        defaults.removePersistentDomain(forName: "TimerGroupSavedStateCleanupTests")
+    }
+
+    @Test func selectedModeIsRestoredForBothStores() {
+        let defaults = UserDefaults(suiteName: "SelectedTimerKindTests")!
+        defaults.removePersistentDomain(forName: "SelectedTimerKindTests")
+        let presets = PresetsStore(userDefaults: defaults)
+        let groups = TimerGroupsStore(userDefaults: defaults)
+        groups.addGroup()
+        presets.clearSelection()
+
+        #expect(PresetsStore(userDefaults: defaults).selectedPresetID == nil)
+        #expect(TimerGroupsStore(userDefaults: defaults).selectedGroupID == groups.selectedGroupID)
+
+        let preset = presets.presets[0]
+        presets.select(preset)
+        groups.clearSelection()
+
+        #expect(PresetsStore(userDefaults: defaults).selectedPresetID == preset.id)
+        #expect(TimerGroupsStore(userDefaults: defaults).selectedGroupID == nil)
+
+        defaults.removePersistentDomain(forName: "SelectedTimerKindTests")
     }
 
     private func makeLayout(ids: [UUID], widths: [CGFloat], contentWidth: CGFloat) -> MenuBarLabelLayout {

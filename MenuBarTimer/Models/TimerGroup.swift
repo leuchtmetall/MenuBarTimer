@@ -7,7 +7,6 @@ import Combine
 import Foundation
 import SwiftUI
 
-
 struct TimerGroup: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
@@ -35,52 +34,48 @@ final class TimerGroupsStore: ObservableObject {
         didSet { saveSelection() }
     }
 
-    private let groupsKey = "timerGroups"
-    private let selectionKey = "selectedTimerGroupID"
+    private static let groupsKey = "timerGroups"
+    private static let selectionKey = "selectedTimerGroupID"
+    private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
-        if let data = userDefaults.data(forKey: groupsKey),
+        if let data = userDefaults.data(forKey: Self.groupsKey),
            let decoded = try? JSONDecoder().decode([TimerGroup].self, from: data) {
             groups = decoded.filter { $0.name != "Stopwatch" }
         } else {
             groups = []
         }
-        let selectedKind = userDefaults.string(forKey: PresetsStore.selectedKindKey)
-        if selectedKind == "preset" {
+        let selectedKind = SelectedTimerKind.load(from: userDefaults)
+        if selectedKind == .preset {
             selectedGroupID = nil
-        } else if selectedKind == "group", groups.isEmpty {
+        } else if selectedKind == .group, groups.isEmpty {
             selectedGroupID = nil
-            userDefaults.removeObject(forKey: PresetsStore.selectedKindKey)
-        } else if let value = userDefaults.string(forKey: selectionKey),
+            SelectedTimerKind.clear(in: userDefaults)
+        } else if let value = userDefaults.string(forKey: Self.selectionKey),
            let id = UUID(uuidString: value), groups.contains(where: { $0.id == id }) {
             selectedGroupID = id
-            if selectedKind == nil { userDefaults.set("group", forKey: PresetsStore.selectedKindKey) }
+            if selectedKind == nil { SelectedTimerKind.group.save(to: userDefaults) }
         } else if selectedKind == nil, let firstGroup = groups.first {
             selectedGroupID = firstGroup.id
-            userDefaults.set("group", forKey: PresetsStore.selectedKindKey)
+            SelectedTimerKind.group.save(to: userDefaults)
         } else {
             selectedGroupID = nil
         }
         save()
     }
 
-    private let userDefaults: UserDefaults
-
-
-
     var selectedGroup: TimerGroup? { groups.first { $0.id == selectedGroupID } }
 
     func addGroup() {
         let group = TimerGroup.example
         groups.append(group)
-        selectedGroupID = group.id
-        userDefaults.set("group", forKey: PresetsStore.selectedKindKey)
+        select(group)
     }
 
     func select(_ group: TimerGroup) {
         selectedGroupID = group.id
-        userDefaults.set("group", forKey: PresetsStore.selectedKindKey)
+        SelectedTimerKind.group.save(to: userDefaults)
     }
 
     func clearSelection() {
@@ -89,9 +84,10 @@ final class TimerGroupsStore: ObservableObject {
 
     func remove(_ group: TimerGroup) {
         groups.removeAll { $0.id == group.id }
+        group.timers.forEach(removeSavedState)
         if selectedGroupID == group.id {
             selectedGroupID = groups.first?.id
-            if selectedGroupID == nil { userDefaults.removeObject(forKey: PresetsStore.selectedKindKey) }
+            if selectedGroupID == nil { SelectedTimerKind.clear(in: userDefaults) }
         }
     }
 
@@ -115,16 +111,22 @@ final class TimerGroupsStore: ObservableObject {
         guard var current = groups.first(where: { $0.id == group.id }), current.timers.count > 1 else { return }
         current.timers.removeAll { $0.id == timer.id }
         update(current)
+        removeSavedState(of: timer)
+    }
+
+    /// Deletes the progress `TimerGroupModel` persisted for a timer that no longer exists.
+    private func removeSavedState(of timer: TimerPreset) {
+        userDefaults.removeObject(forKey: TimerGroupModel.savedStateKey(for: timer))
     }
 
     private func save() {
         guard let data = try? JSONEncoder().encode(groups) else { return }
-        userDefaults.set(data, forKey: groupsKey)
+        userDefaults.set(data, forKey: Self.groupsKey)
     }
 
     private func saveSelection() {
-        if let selectedGroupID { userDefaults.set(selectedGroupID.uuidString, forKey: selectionKey) }
-        else { userDefaults.removeObject(forKey: selectionKey) }
+        if let selectedGroupID { userDefaults.set(selectedGroupID.uuidString, forKey: Self.selectionKey) }
+        else { userDefaults.removeObject(forKey: Self.selectionKey) }
     }
 }
 
@@ -162,16 +164,23 @@ final class TimerGroupModel: ObservableObject {
     init(group: TimerGroup, userDefaults: UserDefaults = .standard) {
         self.group = group
         self.timerModels = group.timers.map {
-            TimerModel(userDefaults: userDefaults, savedStateKey: "timerGroupState-\($0.id.uuidString)")
+            TimerModel(userDefaults: userDefaults, savedStateKey: Self.savedStateKey(for: $0))
         }
         self.activeTimerID = group.timers.first?.id
         for (index, definition) in group.timers.enumerated() {
             let timer = timerModels[index]
-            if timer.preset.type != definition.type || !timer.hasLoadedTimer {
+            // The group may have been edited while it wasn't loaded, leaving the saved state stale.
+            if !timer.hasLoadedTimer || timer.preset.type != definition.type || timer.preset.seconds != definition.seconds {
                 timer.load(definition)
+            } else {
+                timer.updateDisplayDetails(from: definition)
             }
         }
         observeTimers()
+    }
+
+    static func savedStateKey(for timer: TimerPreset) -> String {
+        "timerGroupState-\(timer.id.uuidString)"
     }
 
     private func observeTimers() {
@@ -180,11 +189,6 @@ final class TimerGroupModel: ObservableObject {
                 .sink { [weak self] _ in self?.objectWillChange.send() }
                 .store(in: &timerCancellables)
         }
-    }
-
-    var activeTimer: TimerModel? {
-        guard let activeTimerID, let index = group.timers.firstIndex(where: { $0.id == activeTimerID }) else { return nil }
-        return timerModels[index]
     }
 
     func updateDefinition(_ group: TimerGroup) {
@@ -201,8 +205,6 @@ final class TimerGroupModel: ObservableObject {
         }
         self.group = group
     }
-
-    func select(_ definition: TimerPreset) { activeTimerID = definition.id }
 
     func start(_ definition: TimerPreset) {
         guard let index = group.timers.firstIndex(where: { $0.id == definition.id }) else { return }

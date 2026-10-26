@@ -21,7 +21,8 @@ struct SettingsView: View {
                         Text(display.title).tag(display)
                     }
                 }
-                Toggle("Show progress circle for group timers", isOn: $settings.showGroupTimerProgress).disabled(!$settings.useGroupTimerColors.wrappedValue)
+                Toggle("Show progress circle for group timers", isOn: $settings.showGroupTimerProgress)
+                    .disabled(!settings.useGroupTimerColors)
                 Toggle("Use timer colors in the menu bar", isOn: $settings.useGroupTimerColors)
                 Toggle("Compact colored timers", isOn: $settings.useCompactColoredLabels)
                     .disabled(!settings.useGroupTimerColors)
@@ -45,7 +46,7 @@ struct SettingsView: View {
         .frame(width: 370)
         .onAppear {
             DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activate()
                 NSApp.keyWindow?.makeKeyAndOrderFront(nil)
             }
         }

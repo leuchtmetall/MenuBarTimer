@@ -20,6 +20,14 @@ struct PresetsListView: View {
     @State private var isDragCancelled = false
 
     private let editRowStride: CGFloat = 32
+    /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a reorder drag.
+    private static let escapeKeyCode: UInt16 = 53
+
+    /// The presets that are listed (and can be reordered) above the stopwatch. Drag indices refer
+    /// to this list, not to `presetsStore.presets`, which also contains the stopwatch somewhere.
+    private var reorderablePresets: [TimerPreset] {
+        presetsStore.presets.filter { !$0.isStopwatch }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -57,7 +65,7 @@ struct PresetsListView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(presetsStore.presets.filter { !$0.isStopwatch }) { preset in
+                    ForEach(reorderablePresets) { preset in
                         row(for: preset)
                     }
                     if isEditing {
@@ -92,6 +100,7 @@ struct PresetsListView: View {
                     if isEditing {
                         Button {
                             groupsStore.addGroup()
+                            presetsStore.clearSelection()
                             groupCoordinator.load(groupsStore.selectedGroup)
                         } label: {
                             Label("Add Timer Group", systemImage: "rectangle.3.group")
@@ -237,7 +246,7 @@ struct PresetsListView: View {
                 guard !isDragCancelled else { return }
                 if draggedPresetID == nil {
                     draggedPresetID = preset.id
-                    dragStartIndex = presetsStore.presets.firstIndex(where: { $0.id == preset.id })
+                    dragStartIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id })
                     dragTargetIndex = dragStartIndex
                     monitorEscapeKey()
                 }
@@ -247,14 +256,18 @@ struct PresetsListView: View {
                 let indexOffset = Int((dragOffset / editRowStride).rounded())
                 dragTargetIndex = min(
                     max(0, dragStartIndex + indexOffset),
-                    presetsStore.presets.count - 1
+                    reorderablePresets.count - 1
                 )
             }
             .onEnded { _ in
                 if !isDragCancelled,
                    draggedPresetID == preset.id,
-                   let dragTargetIndex {
-                    presetsStore.movePreset(preset.id, toIndex: dragTargetIndex)
+                   let dragTargetIndex,
+                   reorderablePresets.indices.contains(dragTargetIndex),
+                   // Taking the target preset's place puts the dragged one before it when moving
+                   // up and after it when moving down, wherever the stopwatch sits in the array.
+                   let storeIndex = presetsStore.presets.firstIndex(where: { $0.id == reorderablePresets[dragTargetIndex].id }) {
+                    presetsStore.movePreset(preset.id, toIndex: storeIndex)
                 }
                 resetDrag()
             }
@@ -262,7 +275,7 @@ struct PresetsListView: View {
 
     private func rowOffset(for preset: TimerPreset) -> CGFloat {
         guard let draggedPresetID, let dragStartIndex, let dragTargetIndex,
-              let rowIndex = presetsStore.presets.firstIndex(where: { $0.id == preset.id }) else {
+              let rowIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id }) else {
             return 0
         }
 
@@ -285,7 +298,7 @@ struct PresetsListView: View {
     private func monitorEscapeKey() {
         guard escapeMonitor == nil else { return }
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard event.keyCode == 53 else { return event }
+            guard event.keyCode == Self.escapeKeyCode else { return event }
             DispatchQueue.main.async {
                 cancelDrag()
             }
@@ -322,13 +335,8 @@ struct PresetsListView: View {
     }
 
     private func timerNameBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<String> {
-        let inner: Binding<String> = groupBinding(timer, in: group, keyPath: \.name)
-        return Binding(
-            get: { inner.wrappedValue },
-            set: { inner.wrappedValue = $0.isEmpty ? "" : $0 }
-        )
+        groupBinding(timer, in: group, keyPath: \.name)
     }
-
 
     private func timerTypeBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<TimerType> {
         groupBinding(timer, in: group, keyPath: \.type)

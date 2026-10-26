@@ -7,6 +7,27 @@ import Combine
 import Foundation
 import SwiftUI
 
+/// Which of the two mutually exclusive modes is active: a standalone preset or a timer group.
+/// Shared by `PresetsStore` and `TimerGroupsStore`, which each own one side of the selection.
+enum SelectedTimerKind: String {
+    case preset
+    case group
+
+    private static let userDefaultsKey = "selectedTimerKind"
+
+    static func load(from userDefaults: UserDefaults) -> SelectedTimerKind? {
+        userDefaults.string(forKey: userDefaultsKey).flatMap(SelectedTimerKind.init(rawValue:))
+    }
+
+    static func clear(in userDefaults: UserDefaults) {
+        userDefaults.removeObject(forKey: userDefaultsKey)
+    }
+
+    func save(to userDefaults: UserDefaults) {
+        userDefaults.set(rawValue, forKey: Self.userDefaultsKey)
+    }
+}
+
 /// Persists the user's list of quick-start timer presets, along with which one is currently selected.
 final class PresetsStore: ObservableObject {
     @Published var presets: [TimerPreset] {
@@ -19,7 +40,7 @@ final class PresetsStore: ObservableObject {
 
     private static let presetsKey = "presets"
     private static let selectedPresetKey = "selectedPresetID"
-    static let selectedKindKey = "selectedTimerKind"
+    private let userDefaults: UserDefaults
 
     /// Index into `defaultPresets` used as the selection on a fresh install.
     private static let defaultSelectedIndex = 3
@@ -28,8 +49,9 @@ final class PresetsStore: ObservableObject {
         TimerPreset(seconds: TimeInterval($0 * 60))
     } + [.stopwatch]
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: Self.presetsKey),
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        if let data = userDefaults.data(forKey: Self.presetsKey),
            let decoded = try? JSONDecoder().decode([TimerPreset].self, from: data),
            !decoded.isEmpty {
             presets = decoded.contains(where: { $0.isStopwatch }) ? decoded : decoded + [.stopwatch]
@@ -37,10 +59,9 @@ final class PresetsStore: ObservableObject {
             presets = Self.defaultPresets
         }
 
-        let selectedKind = UserDefaults.standard.string(forKey: Self.selectedKindKey)
-        if selectedKind == "group" {
+        if SelectedTimerKind.load(from: userDefaults) == .group {
             selectedPresetID = nil
-        } else if let idString = UserDefaults.standard.string(forKey: Self.selectedPresetKey),
+        } else if let idString = userDefaults.string(forKey: Self.selectedPresetKey),
            let uuid = UUID(uuidString: idString),
            presets.contains(where: { $0.id == uuid }) {
             selectedPresetID = uuid
@@ -58,7 +79,7 @@ final class PresetsStore: ObservableObject {
 
     func select(_ preset: TimerPreset) {
         selectedPresetID = preset.id
-        UserDefaults.standard.set("preset", forKey: Self.selectedKindKey)
+        SelectedTimerKind.preset.save(to: userDefaults)
     }
 
     func clearSelection() {
@@ -89,14 +110,14 @@ final class PresetsStore: ObservableObject {
 
     private func savePresets() {
         guard let data = try? JSONEncoder().encode(presets) else { return }
-        UserDefaults.standard.set(data, forKey: Self.presetsKey)
+        userDefaults.set(data, forKey: Self.presetsKey)
     }
 
     private func saveSelectedPresetID() {
         if let id = selectedPresetID {
-            UserDefaults.standard.set(id.uuidString, forKey: Self.selectedPresetKey)
+            userDefaults.set(id.uuidString, forKey: Self.selectedPresetKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: Self.selectedPresetKey)
+            userDefaults.removeObject(forKey: Self.selectedPresetKey)
         }
     }
 }
