@@ -47,7 +47,10 @@ struct SettingsView: View {
         .onAppear {
             DispatchQueue.main.async {
                 NSApp.activate()
-                NSApp.keyWindow?.makeKeyAndOrderFront(nil)
+                guard let window = NSApp.keyWindow, !(window is MainPanel) else { return }
+                // Float like the main panel, which would otherwise cover this window.
+                window.level = .floating
+                window.makeKeyAndOrderFront(nil)
             }
         }
     }

@@ -18,32 +18,36 @@ struct MenuBarTimerApp: App {
     @State private var isMenuPresented = false
     /// Written by `MenuBarLabelView` while it composes the label, read by the right-click handler.
     private let labelLayout = MenuBarLabelLayout()
+    private let mainWindow = MainWindowController()
 
     init() {
         TimerCompletionNotifier.configure()
     }
 
     var body: some Scene {
-
-        let popoverView = TimerPopoverView()
-            .environmentObject(timerModel)
-            .environmentObject(presetsStore)
-            .environmentObject(groupsStore)
-            .environmentObject(groupCoordinator)
-            .environmentObject(settings)
+        // The content is never shown: `mainWindow` takes over left-clicks and shows its own panel.
         MenuBarExtra {
-            popoverView
+            EmptyView()
         } label: {
             MenuBarLabelView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator, settings: settings, layout: labelLayout)
                 .id(groupsStore.selectedGroupID?.uuidString ?? presetsStore.selectedPresetID?.uuidString ?? "timer")
         }
         .menuBarExtraAccess(isPresented: $isMenuPresented) { statusItem in
             guard let button = statusItem.button else { return }
+            mainWindow.attach(to: statusItem) {
+                TimerPopoverView()
+                    .environmentObject(timerModel)
+                    .environmentObject(presetsStore)
+                    .environmentObject(groupsStore)
+                    .environmentObject(groupCoordinator)
+                    .environmentObject(settings)
+            }
             let handler = button.subviews.compactMap({ $0 as? RightClickHandlerView }).first
                 ?? RightClickHandlerView(frame: button.bounds)
             if handler.superview == nil { button.addSubview(handler) }
             handler.frame = button.bounds
             handler.autoresizingMask = [.width, .height]
+            handler.onLeftMouseDown = { mainWindow.toggle() }
             handler.onRightMouseDown = { [weak handler] point in
                 guard let handler else { return }
                 let contentFrame = handler.labelContentFrame

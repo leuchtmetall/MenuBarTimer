@@ -18,6 +18,7 @@ struct PresetsListView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var escapeMonitor: Any?
     @State private var isDragCancelled = false
+    @FocusState private var isEditButtonFocused: Bool
 
     private let editRowStride: CGFloat = 32
     /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a reorder drag.
@@ -40,7 +41,9 @@ struct PresetsListView: View {
                 Button(isEditing ? "Done" : "Edit") {
                     isEditing.toggle()
                     resetDrag()
-                }.buttonStyle(.glass)
+                }
+                .buttonStyle(.glass)
+                .focused($isEditButtonFocused)
 
                 Menu {
                     SettingsLink {
@@ -62,6 +65,7 @@ struct PresetsListView: View {
                 .frame(width: 22)
                 .padding(.trailing, 3)
             }
+            .anchorPreference(key: PresetsHeaderBoundsKey.self, value: .bounds) { $0 }
 
             ScrollView {
                 VStack(spacing: 8) {
@@ -115,6 +119,11 @@ struct PresetsListView: View {
         .padding(24)
         .frame(width: 280)
         .onDisappear { resetDrag() }
+        // The Edit button is the initially focused control whenever the window opens.
+        .onAppear { DispatchQueue.main.async { isEditButtonFocused = true } }
+        .onReceive(NotificationCenter.default.publisher(for: MainWindowController.didShowNotification)) { _ in
+            DispatchQueue.main.async { isEditButtonFocused = true }
+        }
     }
 
     private func groupRow(for group: TimerGroup) -> some View {

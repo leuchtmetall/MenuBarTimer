@@ -5,8 +5,7 @@
 
 import AppKit
 
-/// A transparent overlay added on top of the menu bar item's button that only reacts
-/// to right-clicks.
+/// A transparent overlay added on top of the menu bar item's button that handles its clicks.
 ///
 /// `MenuBarExtra` doesn't expose a way to distinguish left- and right-clicks on its
 /// label directly, and the label content itself isn't a fully live/interactive view
@@ -15,15 +14,25 @@ import AppKit
 /// underlying `NSStatusItem`, so instead we add this view directly as a subview of the
 /// real status item button.
 ///
-/// Only `rightMouseDown` is overridden (per the pattern documented in
-/// https://github.com/orchetect/MenuBarExtraAccess/discussions/2). Left-clicks are left
-/// completely untouched here, so `MenuBarExtra`'s own click handling (opening/closing the
-/// popover) keeps working unmodified.
+/// Right-clicks are handled per the pattern documented in
+/// https://github.com/orchetect/MenuBarExtraAccess/discussions/2. Left-clicks are swallowed when
+/// `onLeftMouseDown` is set, so `MenuBarExtra` never opens its own popover; the app shows its
+/// main UI in a separate panel instead (see `MainWindowController`).
 final class RightClickHandlerView: NSView {
+    var onLeftMouseDown: (() -> Void)?
+
     /// Called with the click location in this view's own coordinate space. Because the view is
     /// sized to (and autoresizes with) the status item button's bounds, that is also the button's
     /// coordinate space, which is what `MenuBarLabelLayout` hit-tests against.
     var onRightMouseDown: ((CGPoint) -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        if let onLeftMouseDown {
+            onLeftMouseDown()
+        } else {
+            super.mouseDown(with: event)
+        }
+    }
 
     override func rightMouseDown(with event: NSEvent) {
         if let onRightMouseDown {
