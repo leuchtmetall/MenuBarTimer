@@ -22,11 +22,6 @@ final class MenuBarLabelLayout {
         /// The `TimerPreset.id` of the group timer, i.e. the id used by `TimerGroup.timers`.
         let timerID: UUID
         let width: CGFloat
-
-        init(timerID: UUID, width: CGFloat) {
-            self.timerID = timerID
-            self.width = width
-        }
     }
 
     private(set) var segments: [Segment] = []

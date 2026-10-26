@@ -33,10 +33,6 @@ final class RightClickHandlerView: NSView {
         }
     }
 
-    override func rightMouseUp(with event: NSEvent) {
-        super.rightMouseUp(with: event)
-    }
-
     /// Where the click happened, in this view's coordinate space.
     ///
     /// `event.locationInWindow` can't be used: for status item clicks macOS reports the center of
