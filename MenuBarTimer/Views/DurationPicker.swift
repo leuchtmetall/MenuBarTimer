@@ -40,6 +40,15 @@ private enum DurationComponent: CaseIterable {
     }
 }
 
+/// Virtual key codes (`NSEvent.keyCode`) handled by the duration field.
+private enum KeyCode {
+    static let tab: UInt16 = 48
+    static let leftArrow: UInt16 = 123
+    static let rightArrow: UInt16 = 124
+    static let downArrow: UInt16 = 125
+    static let upArrow: UInt16 = 126
+}
+
 private final class DurationTextView: NSView {
     static let maximumDuration = (99 * 3600) + (59 * 60) + 59
 
@@ -63,7 +72,7 @@ private final class DurationTextView: NSView {
     override var intrinsicContentSize: NSSize { NSSize(width: 82, height: 24) }
 
     override func becomeFirstResponder() -> Bool {
-        if let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == 48 {
+        if let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == KeyCode.tab {
             selectedComponent = event.modifierFlags.contains(.shift) ? .seconds : .hours
             pendingDigits = ""
         }
@@ -87,7 +96,7 @@ private final class DurationTextView: NSView {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 48:
+        case KeyCode.tab:
             pendingDigits = ""
             if event.modifierFlags.contains(.shift) {
                 if selectedComponent == .hours {
@@ -100,13 +109,13 @@ private final class DurationTextView: NSView {
             } else {
                 select(selectedComponent.next)
             }
-        case 123:
+        case KeyCode.leftArrow:
             select(selectedComponent.previous)
-        case 124:
+        case KeyCode.rightArrow:
             select(selectedComponent.next)
-        case 125:
+        case KeyCode.downArrow:
             adjust(by: -1)
-        case 126:
+        case KeyCode.upArrow:
             adjust(by: 1)
         default:
             guard let characters = event.charactersIgnoringModifiers,
