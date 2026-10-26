@@ -129,12 +129,11 @@ private final class DurationTextView: NSView {
 
     func adjust(by amount: Int) {
         guard amount != 0 else { return }
-        let currentTotal = Int(duration.rounded())
-        if amount < 0, componentValue(selectedComponent, in: currentTotal) == 0 {
-            return
-        }
-        let total = currentTotal + (amount * selectedComponent.seconds)
-        setDuration(min(Self.maximumDuration, max(0, total)))
+        let total = Int(duration.rounded()) + (amount * selectedComponent.seconds)
+        // Decrementing below zero borrows from the larger components; ignore it
+        // only when there is nothing left to borrow from.
+        guard total >= 0 else { return }
+        setDuration(min(Self.maximumDuration, total))
         pendingDigits = ""
         needsDisplay = true
     }
