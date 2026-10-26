@@ -85,8 +85,7 @@ struct MenuBarLabelView: View {
     private func groupLabelSegments(for groupModel: TimerGroupModel) -> [(id: UUID, text: String)] {
         groupModel.timerModels.map { timerModel in
             let name = displayName(for: timerModel)
-            // TODO improve check for group-timer
-            let prefix = settings.groupTimerNameDisplay == .none ? "" : name + " "
+            let prefix = name.isEmpty ? "" : name + " "
             return (timerModel.preset.id, prefix + timerModel.timeString)
         }
     }

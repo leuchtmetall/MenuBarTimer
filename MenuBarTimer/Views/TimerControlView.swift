@@ -38,7 +38,7 @@ private struct SingleTimerControlView: View {
                     Text(timerModel.timeString)
                         .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                    Text(statusText)
+                    Text(timerModel.state.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -71,15 +71,6 @@ private struct SingleTimerControlView: View {
         }
         .padding(28)
         .frame(width: 260)
-    }    
-  
-    private var statusText: String {
-        switch timerModel.state {
-        case .idle: return "Ready"
-        case .running: return "Running"
-        case .paused: return "Paused"
-        case .finished: return "Done!"
-        }
     }
 
     private var primaryButtonTitle: String { timerModel.state == .running ? "Pause" : "Start" }
@@ -156,10 +147,10 @@ private struct GroupTimerControlPanel: View {
                 }
 
                 VStack(spacing: 3) {
-                    Text(displayTime)
+                    Text(timer.timeString)
                         .font(.system(size: 25, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                    Text(statusText)
+                    Text(timer.state.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -192,19 +183,6 @@ private struct GroupTimerControlPanel: View {
             }
         }
         .frame(width: 190)
-    }
-
-    private var displayTime: String {
-        timer.preset.type == .countUp ? timer.remaining.formattedElapsedClock : timer.remaining.formattedClock
-    }
-
-    private var statusText: String {
-        switch timer.state {
-        case .idle: return "Ready"
-        case .running: return "Running"
-        case .paused: return "Paused"
-        case .finished: return "Done!"
-        }
     }
 }
 

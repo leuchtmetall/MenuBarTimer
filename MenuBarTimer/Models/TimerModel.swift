@@ -9,12 +9,20 @@ import Foundation
 
 /// Drives a single countdown or count-up timer.
 final class TimerModel: Identifiable, ObservableObject {
-    let id: UUID
-    enum State: Equatable {
+    enum State: String, Codable {
         case idle
         case running
         case paused
         case finished
+
+        var title: String {
+            switch self {
+            case .idle: return "Ready"
+            case .running: return "Running"
+            case .paused: return "Paused"
+            case .finished: return "Done!"
+            }
+        }
     }
 
     @Published private(set) var preset: TimerPreset = TimerPreset(seconds: 5*60)
@@ -30,14 +38,7 @@ final class TimerModel: Identifiable, ObservableObject {
         let preset: TimerPreset
         let totalDuration: TimeInterval
         let remaining: TimeInterval
-        let state: StateValue
-    }
-
-    private enum StateValue: String, Codable {
-        case idle
-        case running
-        case paused
-        case finished
+        let state: State
     }
 
     private let userDefaults: UserDefaults
@@ -288,19 +289,10 @@ final class TimerModel: Identifiable, ObservableObject {
             preset: preset,
             totalDuration: totalDuration,
             remaining: savedRemaining,
-            state: stateValue
+            state: state
         )
         guard let data = try? JSONEncoder().encode(savedState) else { return }
         userDefaults.set(data, forKey: savedStateKey)
-    }
-
-    private var stateValue: StateValue {
-        switch state {
-        case .idle: return .idle
-        case .running: return .running
-        case .paused: return .paused
-        case .finished: return .finished
-        }
     }
 
     private func scheduleTimer() {
