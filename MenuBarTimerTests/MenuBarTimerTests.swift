@@ -30,6 +30,37 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerModelTests")
     }
 
+    @Test func stoppedTimerCanBeAdjustedAndUndone() {
+        let defaults = UserDefaults(suiteName: "StoppedTimerAdjustmentTests")!
+        defaults.removePersistentDomain(forName: "StoppedTimerAdjustmentTests")
+        var notifiedPresets: [TimerPreset] = []
+        let timer = TimerModel(userDefaults: defaults) { notifiedPresets.append($0) }
+        timer.load(TimerPreset(seconds: 100))
+
+        timer.setProgress(0.25)
+        #expect(timer.remaining == 75)
+        #expect(timer.state == .paused)
+        #expect(timer.canUndoAdjustment)
+
+        timer.setProgress(1)
+        #expect(timer.remaining == 0)
+        #expect(timer.state == .finished)
+        #expect(notifiedPresets.isEmpty)
+
+        timer.undoAdjustment()
+        #expect(timer.remaining == 100)
+        #expect(timer.state == .idle)
+        #expect(!timer.canUndoAdjustment)
+
+        timer.setProgress(0.5)
+        timer.resume()
+        #expect(timer.state == .running)
+        #expect(timer.remaining == 50)
+        #expect(!timer.canUndoAdjustment)
+
+        defaults.removePersistentDomain(forName: "StoppedTimerAdjustmentTests")
+    }
+
     @Test func timerGroupOnlyRunsOneTimerAtATime() {
         let defaults = UserDefaults(suiteName: "TimerGroupTests")!
         defaults.removePersistentDomain(forName: "TimerGroupTests")

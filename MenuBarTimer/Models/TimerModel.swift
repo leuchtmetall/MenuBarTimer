@@ -48,7 +48,14 @@ final class TimerModel: Identifiable, ObservableObject {
     private var undoTimer: Timer?
     private var endDate: Date?
     private var startDate: Date?
-    private var adjustmentOriginalEndDate: Date?
+    private var adjustmentOriginal: AdjustmentOriginal?
+
+    /// What `undoAdjustment()` restores: a running timer's deadline (so time keeps passing during
+    /// the undo window), or a stopped timer's exact position and state.
+    private enum AdjustmentOriginal {
+        case running(endDate: Date)
+        case stopped(remaining: TimeInterval, state: State)
+    }
 
     init(
         id: UUID = UUID(),
@@ -181,21 +188,34 @@ final class TimerModel: Identifiable, ObservableObject {
         saveState()
     }
 
-    /// Moves a running timer to a position on its progress ring.
+    /// Moves a timer to a position on its progress ring.
     /// The position represents elapsed time, so `0` is the start and `1` is the end.
+    /// A running timer keeps running from the new position; a stopped (idle, paused or finished)
+    /// timer becomes paused there, or finished — silently — when moved to the end.
     func setProgress(_ progress: Double) {
-        guard preset.type == .countdown, state == .running, totalDuration > 0 else { return }
+        guard preset.type == .countdown, totalDuration > 0 else { return }
 
-        if adjustmentOriginalEndDate == nil {
-            adjustmentOriginalEndDate = endDate
+        if adjustmentOriginal == nil {
+            if state == .running, let endDate {
+                adjustmentOriginal = .running(endDate: endDate)
+            } else {
+                adjustmentOriginal = .stopped(remaining: remaining, state: state)
+            }
         }
 
         let clampedProgress = min(max(progress, 0), 1)
         let newRemaining = totalDuration * (1 - clampedProgress)
         remaining = newRemaining
-        endDate = Date().addingTimeInterval(newRemaining)
         canUndoAdjustment = true
         scheduleAdjustmentUndoExpiry()
+
+        guard state == .running else {
+            state = newRemaining <= 0 ? .finished : .paused
+            saveState()
+            return
+        }
+
+        endDate = Date().addingTimeInterval(newRemaining)
         saveState()
 
         if newRemaining <= 0 {
@@ -203,9 +223,24 @@ final class TimerModel: Identifiable, ObservableObject {
         }
     }
 
-    /// Restores the timer's original countdown deadline, including time elapsed since the drag.
+    /// Restores the timer to where it was before the drag. A running timer gets its original
+    /// countdown deadline back, including time elapsed since the drag.
     func undoAdjustment() {
-        guard let originalEndDate = adjustmentOriginalEndDate, canUndoAdjustment else { return }
+        guard let original = adjustmentOriginal, canUndoAdjustment else { return }
+
+        let originalEndDate: Date
+        switch original {
+        case .running(let endDate):
+            originalEndDate = endDate
+        case .stopped(let originalRemaining, let originalState):
+            invalidateTimer()
+            endDate = nil
+            remaining = originalRemaining
+            state = originalState
+            clearAdjustmentUndo()
+            saveState()
+            return
+        }
 
         let restoredRemaining = originalEndDate.timeIntervalSinceNow
         if restoredRemaining <= 0 {
@@ -298,7 +333,7 @@ final class TimerModel: Identifiable, ObservableObject {
     private func clearAdjustmentUndo() {
         undoTimer?.invalidate()
         undoTimer = nil
-        adjustmentOriginalEndDate = nil
+        adjustmentOriginal = nil
         canUndoAdjustment = false
     }
 
