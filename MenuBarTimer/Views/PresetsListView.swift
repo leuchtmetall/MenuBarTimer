@@ -24,6 +24,8 @@ struct PresetsListView: View {
     /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a reorder drag.
     private static let escapeKeyCode: UInt16 = 53
     private static let focusRingInset: CGFloat = 4
+    /// The list's fixed width. `MainPanel` uses it to tell the presets column from the timer column.
+    static let width: CGFloat = 280
 
     /// The presets that are listed (and can be reordered) above the stopwatch. Drag indices refer
     /// to this list, not to `presetsStore.presets`, which also contains the stopwatch somewhere.
@@ -122,7 +124,7 @@ struct PresetsListView: View {
             .padding(-Self.focusRingInset)
         }
         .padding(24)
-        .frame(width: 280)
+        .frame(width: Self.width)
         .onDisappear { resetDrag() }
         // The Edit button is the initially focused control whenever the window opens.
         .onAppear { DispatchQueue.main.async { isEditButtonFocused = true } }

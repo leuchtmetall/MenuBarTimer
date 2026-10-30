@@ -49,7 +49,8 @@ private enum KeyCode {
     static let upArrow: UInt16 = 126
 }
 
-private final class DurationTextView: NSView {
+/// Tab moves between the hours, minutes and seconds, and on to the next control after the seconds.
+private final class DurationTextView: NSView, TabKeyHandling {
     static let maximumDuration = (99 * 3600) + (59 * 60) + 59
 
     var duration: TimeInterval = 0 {
@@ -286,6 +287,9 @@ struct DurationPicker: NSViewRepresentable {
         stepper.integerValue = 0
         stepper.target = context.coordinator
         stepper.action = #selector(Coordinator.stepperChanged(_:))
+        // Keyboard users step with the arrow keys in the field. As a tab stop the stepper also traps
+        // focus: its key view chain loops through its own internal hosting view.
+        stepper.refusesFirstResponder = true
 
         let stack = NSStackView(views: [textView, stepper])
         stack.orientation = .horizontal

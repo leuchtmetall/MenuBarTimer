@@ -158,7 +158,104 @@ final class MainPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         onCancel?()
     }
+
+    // MARK: Tab order
+
+    // SwiftUI's own key view loop is unusable here: it runs across both columns by vertical position
+    // (jumping between the presets and the timer controls), and it dead-ends inside AppKit views such
+    // as `DurationPicker`, whose host view links back to the hosting view instead of to the next
+    // control. The panel therefore orders all focusable views itself: the timer column, then the
+    // presets column; within a column top to bottom, and left to right within a line.
+    //
+    // SwiftUI controls and text fields handle Tab themselves without asking the window, so Tab is
+    // intercepted here before it reaches them. Views that use Tab internally adopt `TabKeyHandling`
+    // and get it as usual; they leave through `selectNextKeyView` / `selectPreviousKeyView`.
+
+    override func sendEvent(_ event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option])
+        if event.type == .keyDown, event.keyCode == Self.tabKeyCode, modifiers.isEmpty,
+           !(firstResponder is TabKeyHandling) {
+            moveFocus(from: firstResponder as? NSView, forward: !event.modifierFlags.contains(.shift))
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    /// Virtual key code (`NSEvent.keyCode`) of the Tab key.
+    private static let tabKeyCode: UInt16 = 48
+
+    override func selectNextKeyView(_ sender: Any?) {
+        moveFocus(from: firstResponder as? NSView, forward: true)
+    }
+
+    override func selectPreviousKeyView(_ sender: Any?) {
+        moveFocus(from: firstResponder as? NSView, forward: false)
+    }
+
+    override func selectKeyView(following view: NSView) {
+        moveFocus(from: view, forward: true)
+    }
+
+    override func selectKeyView(preceding view: NSView) {
+        moveFocus(from: view, forward: false)
+    }
+
+    private func moveFocus(from current: NSView?, forward: Bool) {
+        let views = orderedKeyViews()
+        guard !views.isEmpty else { return }
+        // The responder may be inside a key view, e.g. a text field's field editor.
+        let index = current.flatMap { current in
+            views.firstIndex { current === $0 || current.isDescendant(of: $0) }
+        }
+        let next: Int
+        if let index {
+            next = (index + (forward ? 1 : -1) + views.count) % views.count
+        } else {
+            next = forward ? 0 : views.count - 1
+        }
+        makeFirstResponder(views[next])
+    }
+
+    private func orderedKeyViews() -> [NSView] {
+        guard let contentView else { return [] }
+        var candidates: [(view: NSView, frame: CGRect)] = []
+        func collect(_ view: NSView) {
+            for subview in view.subviews where !subview.isHidden {
+                let frame = subview.convert(subview.bounds, to: nil)
+                if subview.canBecomeKeyView, !frame.isEmpty {
+                    candidates.append((subview, frame))
+                } else if !(subview is NSControl) {
+                    // Controls' subviews (a text field's field editor, a stepper's internals) are
+                    // never tab stops of their own.
+                    collect(subview)
+                }
+            }
+        }
+        collect(contentView)
+
+        let presetsColumnMinX = contentView.bounds.maxX - PresetsListView.width
+        let columns = [
+            candidates.filter { $0.frame.midX < presetsColumnMinX },
+            candidates.filter { $0.frame.midX >= presetsColumnMinX },
+        ]
+        return columns.flatMap { column in
+            // Window coordinates have y pointing up, so top to bottom is descending y.
+            var lines: [[(view: NSView, frame: CGRect)]] = []
+            for candidate in column.sorted(by: { $0.frame.midY > $1.frame.midY }) {
+                // Views whose vertical centre lies within the current line's first view share a line.
+                if let first = lines.last?.first, candidate.frame.midY >= first.frame.minY {
+                    lines[lines.count - 1].append(candidate)
+                } else {
+                    lines.append([candidate])
+                }
+            }
+            return lines.flatMap { $0.sorted { $0.frame.minX < $1.frame.minX }.map(\.view) }
+        }
+    }
 }
+
+/// A view that handles the Tab key itself instead of leaving it to `MainPanel`'s tab order.
+protocol TabKeyHandling: NSView {}
 
 extension NSStatusItem {
     /// Stops a click on a window-based `MenuBarExtra` from presenting SwiftUI's own popover.
