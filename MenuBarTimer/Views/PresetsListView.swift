@@ -23,6 +23,7 @@ struct PresetsListView: View {
     private let editRowStride: CGFloat = 32
     /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a reorder drag.
     private static let escapeKeyCode: UInt16 = 53
+    private static let focusRingInset: CGFloat = 4
 
     /// The presets that are listed (and can be reordered) above the stopwatch. Drag indices refer
     /// to this list, not to `presetsStore.presets`, which also contains the stopwatch somewhere.
@@ -114,7 +115,11 @@ struct PresetsListView: View {
                         .padding(.top, 4)
                     }
                 }
+                // The scroll view clips to its bounds, which would cut off the rows' focus rings.
+                // Inset the content by the ring's width and widen the scroll view by the same amount.
+                .padding(Self.focusRingInset)
             }
+            .padding(-Self.focusRingInset)
         }
         .padding(24)
         .frame(width: 280)
