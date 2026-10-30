@@ -33,88 +33,42 @@ struct PresetsListView: View {
         presetsStore.presets.filter { !$0.isStopwatch }
     }
 
+    private var stopwatch: TimerPreset? {
+        presetsStore.presets.first(where: { $0.isStopwatch })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Presets")
-                    .font(.headline)
-
-                Spacer()
-
-                Button(isEditing ? "Done" : "Edit") {
-                    isEditing.toggle()
-                    resetDrag()
-                }
-                .buttonStyle(.glass)
-                .focused($isEditButtonFocused)
-
-                Menu {
-                    SettingsLink {
-                        Text("Settings…")
-                    }
-                    Divider()
-                    Button("Quit MenuBarTimer") {
-                        NSApplication.shared.terminate(nil)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .frame(height: 13)
-                        .padding(.all, 5)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .frame(width: 22)
-                .padding(.trailing, 3)
-            }
-            .anchorPreference(key: PresetsHeaderBoundsKey.self, value: .bounds) { $0 }
+            header
+                .anchorPreference(key: PresetsHeaderBoundsKey.self, value: .bounds) { $0 }
 
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(reorderablePresets) { preset in
-                        row(for: preset)
+                        presetRow(for: preset)
                     }
                     if isEditing {
-                        Button {
+                        addButton("Add Single Timer", systemImage: "plus.circle", color: .blue) {
                             presetsStore.addPreset()
-                        } label: {
-                            Label("Add Single Timer", systemImage: "plus.circle")
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
-                        .padding(.top, 4)
                     }
 
-                    if let stopwatch = presetsStore.presets.first(where: { $0.isStopwatch }) {
-                        Text("Stopwatch")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 8)
-                        row(for: stopwatch)
+                    if let stopwatch {
+                        sectionHeader("Stopwatch")
+                        presetRow(for: stopwatch)
                     }
 
                     if !groupsStore.groups.isEmpty {
-                        Text("Timer Groups")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 8)
+                        sectionHeader("Timer Groups")
                         ForEach(groupsStore.groups) { group in
                             groupRow(for: group)
                         }
                     }
 
                     if isEditing {
-                        Button {
-                            groupsStore.addGroup()
-                            presetsStore.clearSelection()
-                            groupCoordinator.load(groupsStore.selectedGroup)
-                        } label: {
-                            Label("Add Timer Group", systemImage: "rectangle.3.group")
+                        addButton("Add Timer Group", systemImage: "rectangle.3.group", color: .purple) {
+                            addGroup()
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.purple)
-                        .padding(.top, 4)
                     }
                 }
                 // The scroll view clips to its bounds, which would cut off the rows' focus rings.
@@ -127,144 +81,218 @@ struct PresetsListView: View {
         .frame(width: Self.width)
         .onDisappear { resetDrag() }
         // The Edit button is the initially focused control whenever the window opens.
-        .onAppear { DispatchQueue.main.async { isEditButtonFocused = true } }
+        .onAppear { focusEditButton() }
         .onReceive(NotificationCenter.default.publisher(for: MainWindowController.didShowNotification)) { _ in
-            DispatchQueue.main.async { isEditButtonFocused = true }
+            focusEditButton()
         }
     }
 
-    private func groupRow(for group: TimerGroup) -> some View {
-        let isSelected = groupsStore.selectedGroupID == group.id
-        return Group {
-            if isEditing {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack {
-                        TextField("Group name", text: groupNameBinding(for: group))
-                        Button { groupsStore.remove(group) } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                        }.buttonStyle(.plain)
-                    }
-                    ForEach(group.timers) { timer in
-                        HStack(spacing: 5) {
-                            Picker("Type", selection: timerTypeBinding(timer, in: group)) {
-                                Image(systemName: "arrow.up").imageScale(.small).tag(TimerType.countUp)
-                                Image(systemName: "arrow.down").imageScale(.small).tag(TimerType.countdown)
-                            }.labelsHidden().frame(width: 45)
-                            TextField("Timer name", text: timerNameBinding(timer, in: group))
-                            if timer.type == .countdown {
-                                DurationPicker(duration: timerDurationBinding(timer, in: group))
-                            }
-                            Button {
-                                groupsStore.removeTimer(timer, from: group)
-                            } label: {
-                                Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(group.timers.count == 1)
-                        }
-                    }
-                    Button {
-                        groupsStore.addTimer(to: group)
-                    } label: {
-                        Label("Add Timer", systemImage: "plus.circle")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.blue)
-                }
-            } else {
-                Button {
-                    groupsStore.select(group)
-                    presetsStore.clearSelection()
-                    groupCoordinator.load(group)
-                } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Image(systemName: "rectangle.3.group")
-                            Text(group.name)
-                            Spacer()
-                            if isSelected { Image(systemName: "checkmark") }
-                        }
-                        HStack(spacing: 8) {
-                            ForEach(group.timers) { timer in
-                                Text(timer.name + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
-                                    .foregroundStyle(timer.color)
-                                    .font(.caption)
-                            }
-                        }
-                    }.contentShape(Rectangle())
-                }
-                .buttonStyle(.bordered)
-                .tint(isSelected ? .purple : nil)
+    // MARK: Header
+
+    private var header: some View {
+        HStack {
+            Text("Presets")
+                .font(.headline)
+
+            Spacer()
+
+            Button(isEditing ? "Done" : "Edit") {
+                isEditing.toggle()
+                resetDrag()
             }
+            .buttonStyle(.glass)
+            .focused($isEditButtonFocused)
+
+            appMenu
         }
     }
+
+    private var appMenu: some View {
+        Menu {
+            SettingsLink {
+                Text("Settings…")
+            }
+            Divider()
+            Button("Quit MenuBarTimer") {
+                NSApplication.shared.terminate(nil)
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .frame(height: 13)
+                .padding(.all, 5)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .frame(width: 22)
+        .padding(.trailing, 3)
+    }
+
+    private func focusEditButton() {
+        DispatchQueue.main.async { isEditButtonFocused = true }
+    }
+
+    // MARK: Shared row elements
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+    }
+
+    private func addButton(
+        _ title: String,
+        systemImage: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(color)
+        .padding(.top, 4)
+    }
+
+    // MARK: Preset rows
 
     @ViewBuilder
-    private func row(for preset: TimerPreset) -> some View {
+    private func presetRow(for preset: TimerPreset) -> some View {
         if isEditing {
-            HStack(spacing: 8) {
-                if !preset.isStopwatch {
-                    Image(systemName: "line.3.horizontal")
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18, height: 24)
-                        .contentShape(Rectangle())
-                        .help("Drag to rearrange preset")
-                        .gesture(reorderGesture(for: preset))
-                    DurationPicker(duration: durationBinding(for: preset))
-                    Button(action: {presetsStore.removePreset(preset)}) {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Label("Stopwatch", systemImage: "stopwatch")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .offset(y: rowOffset(for: preset))
-            .opacity(draggedPresetID == preset.id ? 0.65 : 1)
-            .zIndex(draggedPresetID == preset.id ? 1 : 0)
-            .animation(
-                preset.id == draggedPresetID ? nil : .easeOut(duration: 0.1),
-                value: dragTargetIndex
-            )
+            editablePresetRow(for: preset)
         } else {
-            let isSelected = presetsStore.selectedPresetID == preset.id
-            Button {
-                presetsStore.select(preset)
-                groupsStore.clearSelection()
-                groupCoordinator.load(nil)
-                timerModel.load(preset)
-            } label: {
-                HStack {
-                    if preset.isStopwatch {
-                        Label("Stopwatch", systemImage: "stopwatch")
-                    } else {
-                        Text(preset.seconds.formattedClock)
-                            .monospacedDigit()
-                    }
-                    Spacer()
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.bordered)
-            .tint(isSelected ? Color.blue : nil)
+            selectablePresetRow(for: preset)
         }
     }
+
+    private func editablePresetRow(for preset: TimerPreset) -> some View {
+        let isDragged = draggedPresetID == preset.id
+        return HStack(spacing: 8) {
+            if preset.isStopwatch {
+                Label("Stopwatch", systemImage: "stopwatch")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Image(systemName: "line.3.horizontal")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 24)
+                    .contentShape(Rectangle())
+                    .help("Drag to rearrange preset")
+                    .gesture(reorderGesture(for: preset))
+                DurationPicker(duration: durationBinding(for: preset))
+                RemoveButton { presetsStore.removePreset(preset) }
+            }
+        }
+        .offset(y: rowOffset(for: preset))
+        .opacity(isDragged ? 0.65 : 1)
+        .zIndex(isDragged ? 1 : 0)
+        .animation(isDragged ? nil : .easeOut(duration: 0.1), value: dragTargetIndex)
+    }
+
+    private func selectablePresetRow(for preset: TimerPreset) -> some View {
+        let isSelected = presetsStore.selectedPresetID == preset.id
+        return Button {
+            select(preset)
+        } label: {
+            HStack {
+                if preset.isStopwatch {
+                    Label("Stopwatch", systemImage: "stopwatch")
+                } else {
+                    Text(preset.seconds.formattedClock)
+                        .monospacedDigit()
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.bordered)
+        .tint(isSelected ? Color.blue : nil)
+    }
+
+    private func durationBinding(for preset: TimerPreset) -> Binding<TimeInterval> {
+        Binding(
+            get: {
+                presetsStore.presets.first(where: { $0.id == preset.id })?.seconds ?? 0
+            },
+            set: { newDuration in
+                guard let index = presetsStore.presets.firstIndex(where: { $0.id == preset.id }) else { return }
+                presetsStore.presets[index].seconds = newDuration
+            }
+        )
+    }
+
+    // MARK: Group rows
+
+    @ViewBuilder
+    private func groupRow(for group: TimerGroup) -> some View {
+        if isEditing {
+            TimerGroupEditor(groupsStore: groupsStore, group: group)
+        } else {
+            selectableGroupRow(for: group)
+        }
+    }
+
+    private func selectableGroupRow(for group: TimerGroup) -> some View {
+        let isSelected = groupsStore.selectedGroupID == group.id
+        return Button {
+            select(group)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Image(systemName: "rectangle.3.group")
+                    Text(group.name)
+                    Spacer()
+                    if isSelected { Image(systemName: "checkmark") }
+                }
+                HStack(spacing: 8) {
+                    ForEach(group.timers) { timer in
+                        Text(timer.name + " " + (timer.type == .countUp ? "↑" : timer.seconds.formattedClock))
+                            .foregroundStyle(timer.color)
+                            .font(.caption)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.bordered)
+        .tint(isSelected ? .purple : nil)
+    }
+
+    // MARK: Selection
+    //
+    // Presets and groups are mutually exclusive: selecting one clears the other's selection.
+
+    private func select(_ preset: TimerPreset) {
+        presetsStore.select(preset)
+        groupsStore.clearSelection()
+        groupCoordinator.load(nil)
+        timerModel.load(preset)
+    }
+
+    private func select(_ group: TimerGroup) {
+        groupsStore.select(group)
+        presetsStore.clearSelection()
+        groupCoordinator.load(group)
+    }
+
+    private func addGroup() {
+        groupsStore.addGroup()
+        presetsStore.clearSelection()
+        groupCoordinator.load(groupsStore.selectedGroup)
+    }
+
+    // MARK: Reordering
 
     private func reorderGesture(for preset: TimerPreset) -> some Gesture {
         DragGesture(minimumDistance: 2, coordinateSpace: .global)
             .onChanged { value in
                 guard !isDragCancelled else { return }
                 if draggedPresetID == nil {
-                    draggedPresetID = preset.id
-                    dragStartIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id })
-                    dragTargetIndex = dragStartIndex
-                    monitorEscapeKey()
+                    beginDrag(of: preset)
                 }
 
                 guard draggedPresetID == preset.id, let dragStartIndex else { return }
@@ -276,19 +304,31 @@ struct PresetsListView: View {
                 )
             }
             .onEnded { _ in
-                if !isDragCancelled,
-                   draggedPresetID == preset.id,
-                   let dragTargetIndex,
-                   reorderablePresets.indices.contains(dragTargetIndex),
-                   // Taking the target preset's place puts the dragged one before it when moving
-                   // up and after it when moving down, wherever the stopwatch sits in the array.
-                   let storeIndex = presetsStore.presets.firstIndex(where: { $0.id == reorderablePresets[dragTargetIndex].id }) {
-                    presetsStore.movePreset(preset.id, toIndex: storeIndex)
+                if !isDragCancelled, draggedPresetID == preset.id {
+                    commitDrag(of: preset)
                 }
                 resetDrag()
             }
     }
 
+    private func beginDrag(of preset: TimerPreset) {
+        draggedPresetID = preset.id
+        dragStartIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id })
+        dragTargetIndex = dragStartIndex
+        monitorEscapeKey()
+    }
+
+    private func commitDrag(of preset: TimerPreset) {
+        guard let dragTargetIndex, reorderablePresets.indices.contains(dragTargetIndex) else { return }
+        // Taking the target preset's place puts the dragged one before it when moving up and after
+        // it when moving down, wherever the stopwatch sits in the array.
+        let targetID = reorderablePresets[dragTargetIndex].id
+        guard let storeIndex = presetsStore.presets.firstIndex(where: { $0.id == targetID }) else { return }
+        presetsStore.movePreset(preset.id, toIndex: storeIndex)
+    }
+
+    /// How far a row is shifted while a drag is in progress: the dragged row follows the pointer,
+    /// and the rows between its start and target slide one place to make room.
     private func rowOffset(for preset: TimerPreset) -> CGFloat {
         guard let draggedPresetID, let dragStartIndex, let dragTargetIndex,
               let rowIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id }) else {
@@ -342,50 +382,104 @@ struct PresetsListView: View {
         dragTargetIndex = nil
         dragOffset = 0
     }
+}
 
-    private func groupNameBinding(for group: TimerGroup) -> Binding<String> {
-        Binding(get: { groupsStore.groups.first(where: { $0.id == group.id })?.name ?? "" }, set: { value in
-            guard var current = groupsStore.groups.first(where: { $0.id == group.id }) else { return }
-            current.name = value; groupsStore.update(current)
-        })
+/// Edit-mode row for a timer group: its name and an editable line per timer.
+private struct TimerGroupEditor: View {
+    @ObservedObject var groupsStore: TimerGroupsStore
+    let group: TimerGroup
+
+    /// The store's current copy of the group; `group` may be stale between edits.
+    private var currentGroup: TimerGroup? {
+        groupsStore.groups.first(where: { $0.id == group.id })
     }
 
-    private func timerNameBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<String> {
-        groupBinding(timer, in: group, keyPath: \.name)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                TextField("Group name", text: nameBinding)
+                RemoveButton { groupsStore.remove(group) }
+            }
+            ForEach(group.timers) { timer in
+                timerRow(for: timer)
+            }
+            Button {
+                groupsStore.addTimer(to: group)
+            } label: {
+                Label("Add Timer", systemImage: "plus.circle")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+        }
     }
 
-    private func timerTypeBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<TimerType> {
-        groupBinding(timer, in: group, keyPath: \.type)
+    private func timerRow(for timer: TimerPreset) -> some View {
+        HStack(spacing: 5) {
+            Picker("Type", selection: binding(for: timer, \.type)) {
+                Image(systemName: "arrow.up").imageScale(.small).tag(TimerType.countUp)
+                Image(systemName: "arrow.down").imageScale(.small).tag(TimerType.countdown)
+            }
+            .labelsHidden()
+            .frame(width: 45)
+            TextField("Timer name", text: binding(for: timer, \.name))
+            if timer.type == .countdown {
+                DurationPicker(duration: binding(for: timer, \.seconds))
+            }
+            RemoveButton { groupsStore.removeTimer(timer, from: group) }
+                .disabled(group.timers.count == 1)
+        }
     }
 
-    private func timerDurationBinding(_ timer: TimerPreset, in group: TimerGroup) -> Binding<TimeInterval> {
-        groupBinding(timer, in: group, keyPath: \.seconds)
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { currentGroup?.name ?? "" },
+            set: { newName in
+                guard var updated = currentGroup else { return }
+                updated.name = newName
+                groupsStore.update(updated)
+            }
+        )
     }
 
-    private func groupBinding<Value>(_ timer: TimerPreset, in group: TimerGroup, keyPath: WritableKeyPath<TimerPreset, Value>) -> Binding<Value> {
-        Binding(get: {
-            groupsStore.groups.first(where: { $0.id == group.id })?.timers.first(where: { $0.id == timer.id }).map { $0[keyPath: keyPath] } ?? timer[keyPath: keyPath]
-        }, set: { value in
-            guard var current = groupsStore.groups.first(where: { $0.id == group.id }),
-                  let index = current.timers.firstIndex(where: { $0.id == timer.id }) else { return }
-            current.timers[index][keyPath: keyPath] = value
-            groupsStore.update(current)
-        })
-    }
-
-    private func durationBinding(for preset: TimerPreset) -> Binding<TimeInterval> {
+    /// Binds one property of a timer in the group, reading and writing the store's current copy.
+    private func binding<Value>(
+        for timer: TimerPreset,
+        _ keyPath: WritableKeyPath<TimerPreset, Value>
+    ) -> Binding<Value> {
         Binding(
             get: {
-                presetsStore.presets.first(where: { $0.id == preset.id })?.seconds ?? 0
+                let currentTimer = currentGroup?.timers.first(where: { $0.id == timer.id })
+                return (currentTimer ?? timer)[keyPath: keyPath]
             },
-            set: { newDuration in
-                guard let index = presetsStore.presets.firstIndex(where: { $0.id == preset.id }) else { return }
-                presetsStore.presets[index].seconds = newDuration
+            set: { newValue in
+                guard var updated = currentGroup,
+                      let index = updated.timers.firstIndex(where: { $0.id == timer.id }) else { return }
+                updated.timers[index][keyPath: keyPath] = newValue
+                groupsStore.update(updated)
             }
         )
     }
 }
 
+/// The red minus button that deletes a preset, group or group timer in edit mode.
+private struct RemoveButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "minus.circle.fill")
+                .foregroundStyle(.red)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 #Preview {
-    PresetsListView(timerModel: TimerModel(), presetsStore: PresetsStore(), groupsStore: TimerGroupsStore(), groupCoordinator: TimerGroupCoordinator())
+    PresetsListView(
+        timerModel: TimerModel(),
+        presetsStore: PresetsStore(),
+        groupsStore: TimerGroupsStore(),
+        groupCoordinator: TimerGroupCoordinator()
+    )
 }
