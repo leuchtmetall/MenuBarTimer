@@ -109,6 +109,9 @@ struct PresetsListView: View {
 
     private var appMenu: some View {
         Menu {
+            Button("About MenuBarTimer") {
+                showAboutPanel()
+            }
             SettingsLink {
                 Text("Settings…")
             }
@@ -127,6 +130,17 @@ struct PresetsListView: View {
         .menuIndicator(.hidden)
         .frame(width: 22)
         .padding(.trailing, 3)
+    }
+
+    private func showAboutPanel() {
+        let existingWindows = NSApp.windows
+        NSApp.activate()
+        NSApp.orderFrontStandardAboutPanel(nil)
+        // Float like the main panel, which would otherwise cover this window. AppKit has no reference
+        // to the about panel and it doesn't reliably become key, so find it as the window that's new.
+        for window in NSApp.windows where !existingWindows.contains(window) {
+            window.level = .floating
+        }
     }
 
     private func focusEditButton() {
