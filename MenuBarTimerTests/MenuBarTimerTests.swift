@@ -5,8 +5,10 @@
 //  Created by Leonhard Massloch on 2026/07/14.
 //
 
+import AppKit
 import CoreGraphics
 import Foundation
+import SwiftUI
 import Testing
 @testable import MenuBarTimer
 
@@ -395,6 +397,35 @@ struct MenuBarTimerTests {
         #expect(model.activeTimerID == second.id)
 
         defaults.removePersistentDomain(forName: "TimerGroupReorderStateTests")
+    }
+
+    @Test func timerColorNamesResolve() {
+        // Names stored by earlier versions keep working.
+        for name in TimerPreset.newTimerColorNames + ["yellow"] {
+            #expect(TimerColor.color(named: name) != nil)
+        }
+        for hue in TimerColor.hues {
+            for shade in TimerColor.Shade.allCases {
+                #expect(TimerColor.color(named: TimerColor.name(hue: hue.name, shade: shade)) != nil)
+            }
+        }
+        #expect(TimerColor.name(hue: "blue", shade: .base) == "blue")
+        #expect(TimerColor.name(hue: "blue", shade: .light) == "blue-light")
+        #expect(TimerColor.color(named: nil) == nil)
+        #expect(TimerColor.color(named: "bogus") == nil)
+        #expect(TimerColor.color(named: "blue-bogus") == nil)
+        #expect(TimerColor.color(named: "#12345") == nil)
+        #expect(TimerPreset(seconds: 0, colorName: "bogus").color == .primary)
+    }
+
+    @Test func customTimerColorsRoundTripAsHex() {
+        let name = TimerColor.customName(for: NSColor(srgbRed: 1, green: 0.5, blue: 0, alpha: 0.4))
+        #expect(name == "#FF8000")
+        #expect(TimerColor.isCustom(name))
+        #expect(!TimerColor.isCustom("orange"))
+
+        let resolved = try! #require(TimerColor.color(named: name))
+        #expect(TimerColor.customName(for: NSColor(resolved)) == name)
     }
 
     @Test func selectedModeIsRestoredForBothStores() {

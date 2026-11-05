@@ -386,7 +386,7 @@ private struct TimerGroupEditor: View {
             .labelsHidden()
             .frame(width: 45)
             if isExpanded {
-                TimerColorPicker(colorName: binding(for: timer, \.colorName))
+                TimerColorPicker(colorName: binding(for: timer, \.colorName), ownerID: timer.id)
             }
             TextField("Timer name", text: binding(for: timer, \.name))
             if timer.type == .countdown {
@@ -427,75 +427,6 @@ private struct TimerGroupEditor: View {
                 groupsStore.update(updated)
             }
         )
-    }
-}
-
-/// A swatch of a group timer's color that opens a popover to pick another one, or none.
-/// A timer without a color is drawn in the menu bar's default color.
-private struct TimerColorPicker: View {
-    @Binding var colorName: String?
-    @State private var isPresented = false
-
-    var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            ColorSwatch(colorName: colorName)
-        }
-        .buttonStyle(.plain)
-        .help("Timer color")
-        .accessibilityLabel("Timer color")
-        .accessibilityValue(colorName?.capitalized ?? "None")
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            HStack(spacing: 6) {
-                option(nil)
-                ForEach(TimerPreset.colorNames, id: \.self) { option($0) }
-            }
-            .padding(10)
-        }
-    }
-
-    private func option(_ name: String?) -> some View {
-        Button {
-            colorName = name
-            isPresented = false
-        } label: {
-            ColorSwatch(colorName: name)
-                .padding(2)
-                .overlay {
-                    if name == colorName {
-                        Circle().strokeBorder(.primary, lineWidth: 1.5)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .help(name?.capitalized ?? "No color")
-        .accessibilityLabel(name?.capitalized ?? "No color")
-    }
-}
-
-/// A filled circle in a timer color, or a struck-through outline for no color.
-private struct ColorSwatch: View {
-    let colorName: String?
-
-    var body: some View {
-        Group {
-            if colorName != nil {
-                Circle().fill(TimerPreset.color(named: colorName))
-            } else {
-                Circle()
-                    .strokeBorder(.secondary, lineWidth: 1)
-                    .overlay {
-                        Rectangle()
-                            .fill(.secondary)
-                            .frame(width: 1)
-                            .rotationEffect(.degrees(45))
-                    }
-                    .clipShape(Circle())
-            }
-        }
-        .frame(width: 14, height: 14)
-        .contentShape(Circle())
     }
 }
 

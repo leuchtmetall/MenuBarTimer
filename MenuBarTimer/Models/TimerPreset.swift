@@ -29,26 +29,10 @@ struct TimerPreset: Identifiable, Codable, Equatable {
         self.colorName = colorName
     }
     
-    var color: Color { Self.color(named: colorName) }
+    /// The timer's color (see `TimerColor`), or `.primary` when it has none.
+    var color: Color { TimerColor.color(named: colorName) ?? .primary }
 
-    /// The color for a `colorName`; unknown names and `nil` give the default `.primary`.
-    static func color(named colorName: String?) -> Color {
-        switch colorName {
-        case "blue": return .blue
-        case "red": return .red
-        case "orange": return .orange
-        case "green": return .green
-        case "purple": return .purple
-        case "pink": return .pink
-        case "yellow": return .yellow
-        default: return .primary
-        }
-    }
-
-    /// Every color name `color` handles, in the order the group editor's color picker offers them.
-    static let colorNames = ["blue", "green", "yellow", "orange", "red", "pink", "purple"]
-
-    /// The colors new group timers cycle through, in order. All of them are handled by `color`.
+    /// The colors new group timers cycle through, in order. All of them are `TimerColor` palette names.
     static let newTimerColorNames = ["blue", "green", "orange", "purple", "red", "pink"]
 
     static var stopwatch: TimerPreset {
