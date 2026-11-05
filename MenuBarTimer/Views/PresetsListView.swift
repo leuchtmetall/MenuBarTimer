@@ -412,6 +412,14 @@ private struct TimerGroupEditor: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 TextField("Group name", text: nameBinding)
+                Button {
+                    groupsStore.duplicate(group)
+                } label: {
+                    Image(systemName: "plus.square.on.square")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Duplicate group")
                 RemoveButton { groupsStore.remove(group) }
             }
             ForEach(group.timers) { timer in

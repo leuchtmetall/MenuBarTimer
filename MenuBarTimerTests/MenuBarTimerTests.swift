@@ -324,6 +324,37 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerGroupSavedStateCleanupTests")
     }
 
+    @Test func duplicatingGroupCopiesTimersWithNewIDs() {
+        let defaults = UserDefaults(suiteName: "TimerGroupDuplicateTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupDuplicateTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        let original = store.groups[0]
+        _ = TimerGroupModel(group: original, userDefaults: defaults)
+
+        store.duplicate(original)
+        #expect(store.groups.count == 2)
+        #expect(store.groups[0] == original)
+        let copy = store.groups[1]
+        #expect(copy.id != original.id)
+        #expect(copy.name == "Focus Copy")
+        #expect(copy.timers.count == original.timers.count)
+        for (copied, source) in zip(copy.timers, original.timers) {
+            #expect(copied.id != source.id)
+            #expect(copied.seconds == source.seconds)
+            #expect(copied.type == source.type)
+            #expect(copied.name == source.name)
+            #expect(copied.colorName == source.colorName)
+        }
+        #expect(store.selectedGroupID == original.id)
+
+        store.remove(copy)
+        let originalKeys = original.timers.map { TimerGroupModel.savedStateKey(for: $0) }
+        #expect(originalKeys.allSatisfy { defaults.data(forKey: $0) != nil })
+
+        defaults.removePersistentDomain(forName: "TimerGroupDuplicateTests")
+    }
+
     @Test func selectedModeIsRestoredForBothStores() {
         let defaults = UserDefaults(suiteName: "SelectedTimerKindTests")!
         defaults.removePersistentDomain(forName: "SelectedTimerKindTests")

@@ -91,6 +91,20 @@ final class TimerGroupsStore: ObservableObject {
         }
     }
 
+    /// Inserts a copy of the group right after it. The copy and its timers get fresh IDs, so they
+    /// have their own saved progress (`TimerGroupModel.savedStateKey`) and don't share the original's.
+    func duplicate(_ group: TimerGroup) {
+        guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
+        let original = groups[index] // the store's current copy; `group` may be stale
+        let copy = TimerGroup(
+            name: original.name + " Copy",
+            timers: original.timers.map {
+                TimerPreset(seconds: $0.seconds, type: $0.type, name: $0.name, colorName: $0.colorName)
+            }
+        )
+        groups.insert(copy, at: index + 1)
+    }
+
     func update(_ group: TimerGroup) {
         guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
         groups[index] = group
