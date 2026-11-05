@@ -10,4 +10,3 @@ ToDo:
 - timer groups option: auto-start next timer, then reset and repeat (for pomodoro, etc.)
 - alternate small menu bar timer, set directly from main UI (for smaller screens, where the menu items don't leave enough space)
 - also show elapsed time in small font (optional)
-- bigger close button for better visual balance

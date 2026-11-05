@@ -29,11 +29,11 @@ struct MainWindowView<Content: View>: View {
             }
             .overlayPreferenceValue(PresetsHeaderBoundsKey.self) { header in
                 // Vertically centered on the presets header row, so it lines up with Edit and the
-                // ellipsis menu. Styled and sized like the ellipsis menu button.
+                // ellipsis menu. Somewhat larger than the ellipsis menu button.
                 GeometryReader { proxy in
-                    let midY = header.map { proxy[$0].midY } ?? 24 + closeButtonSize / 2
+                    let midY = header.map { proxy[$0].midY } ?? closeButtonCenter
                     closeButton
-                        .position(x: 24 + closeButtonSize / 2, y: midY)
+                        .position(x: closeButtonCenter, y: midY)
                 }
             }
             .onExitCommand(perform: onClose)
@@ -42,19 +42,32 @@ struct MainWindowView<Content: View>: View {
             .modifier(TopTrailingPinned())
     }
 
-    private let closeButtonSize: CGFloat = 23
+    private let closeButtonSize: CGFloat = 30
+    /// Fixed independently of `closeButtonSize`, so resizing the button keeps its center in place.
+    private let closeButtonCenter: CGFloat = 35.5
 
     private var closeButton: some View {
         Button(action: onClose) {
             Image(systemName: "xmark")
-                .frame(width: 13, height: 13)
-                .padding(5)
-                .glassEffect(.regular.interactive(), in: .circle)
+                .font(.system(size: 15, weight: .medium))
+                .frame(width: 16, height: 16)
+                .padding(7)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OutlinedCircleButtonStyle())
         .frame(width: closeButtonSize, height: closeButtonSize)
         .help("Close")
         .accessibilityLabel("Close")
+    }
+}
+
+/// A circle outline around the label, both in the same color, which darkens while pressed.
+private struct OutlinedCircleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let style: HierarchicalShapeStyle = configuration.isPressed ? .secondary : .tertiary
+        configuration.label
+            .foregroundStyle(style)
+            .overlay(Circle().strokeBorder(style, lineWidth: 1.5))
+            .contentShape(.circle)
     }
 }
 
