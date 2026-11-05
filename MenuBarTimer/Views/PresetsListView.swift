@@ -254,7 +254,7 @@ struct PresetsListView: View {
     @ViewBuilder
     private func groupRow(for group: TimerGroup) -> some View {
         if isEditing {
-            TimerGroupEditor(groupsStore: groupsStore, group: group, isReorderable: isEditExpanded)
+            TimerGroupEditor(groupsStore: groupsStore, group: group, isExpanded: isEditExpanded)
         } else {
             selectableGroupRow(for: group)
         }
@@ -326,8 +326,9 @@ struct PresetsListView: View {
 private struct TimerGroupEditor: View {
     @ObservedObject var groupsStore: TimerGroupsStore
     let group: TimerGroup
-    /// Whether timer rows have a drag handle for reordering; only the expanded editor shows one.
-    let isReorderable: Bool
+    /// Whether this is the expanded editor, whose timer rows also have a drag handle for reordering
+    /// and a color picker.
+    let isExpanded: Bool
     @StateObject private var reorderer = RowReorderer(rowStride: Self.timerRowHeight + Self.rowSpacing)
 
     /// Every timer row is this tall, whatever controls it shows, so the reorder drag has a fixed stride.
@@ -366,13 +367,13 @@ private struct TimerGroupEditor: View {
             .foregroundStyle(.blue)
         }
         .onDisappear { reorderer.reset() }
-        .onChange(of: isReorderable) { reorderer.reset() }
+        .onChange(of: isExpanded) { reorderer.reset() }
     }
 
     private func timerRow(for timer: TimerPreset) -> some View {
         let ids = group.timers.map(\.id)
         return HStack(spacing: 5) {
-            if isReorderable {
+            if isExpanded {
                 ReorderHandle(help: "Drag to rearrange timer")
                     .gesture(reorderer.gesture(for: timer.id, in: ids) { id, targetIndex in
                         groupsStore.moveTimer(id, in: group, toIndex: targetIndex)
@@ -384,6 +385,9 @@ private struct TimerGroupEditor: View {
             }
             .labelsHidden()
             .frame(width: 45)
+            if isExpanded {
+                TimerColorPicker(colorName: binding(for: timer, \.colorName))
+            }
             TextField("Timer name", text: binding(for: timer, \.name))
             if timer.type == .countdown {
                 DurationPicker(duration: binding(for: timer, \.seconds))
@@ -423,6 +427,75 @@ private struct TimerGroupEditor: View {
                 groupsStore.update(updated)
             }
         )
+    }
+}
+
+/// A swatch of a group timer's color that opens a popover to pick another one, or none.
+/// A timer without a color is drawn in the menu bar's default color.
+private struct TimerColorPicker: View {
+    @Binding var colorName: String?
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            ColorSwatch(colorName: colorName)
+        }
+        .buttonStyle(.plain)
+        .help("Timer color")
+        .accessibilityLabel("Timer color")
+        .accessibilityValue(colorName?.capitalized ?? "None")
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            HStack(spacing: 6) {
+                option(nil)
+                ForEach(TimerPreset.colorNames, id: \.self) { option($0) }
+            }
+            .padding(10)
+        }
+    }
+
+    private func option(_ name: String?) -> some View {
+        Button {
+            colorName = name
+            isPresented = false
+        } label: {
+            ColorSwatch(colorName: name)
+                .padding(2)
+                .overlay {
+                    if name == colorName {
+                        Circle().strokeBorder(.primary, lineWidth: 1.5)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .help(name?.capitalized ?? "No color")
+        .accessibilityLabel(name?.capitalized ?? "No color")
+    }
+}
+
+/// A filled circle in a timer color, or a struck-through outline for no color.
+private struct ColorSwatch: View {
+    let colorName: String?
+
+    var body: some View {
+        Group {
+            if colorName != nil {
+                Circle().fill(TimerPreset.color(named: colorName))
+            } else {
+                Circle()
+                    .strokeBorder(.secondary, lineWidth: 1)
+                    .overlay {
+                        Rectangle()
+                            .fill(.secondary)
+                            .frame(width: 1)
+                            .rotationEffect(.degrees(45))
+                    }
+                    .clipShape(Circle())
+            }
+        }
+        .frame(width: 14, height: 14)
+        .contentShape(Circle())
     }
 }
 
