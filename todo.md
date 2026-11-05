@@ -1,5 +1,4 @@
 ToDo:
-- custom colors (timer groups)
 - multiple timers / timer groups
 - option: count up after reaching zero (for count-down timers)
 - save/load presets
