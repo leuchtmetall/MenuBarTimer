@@ -17,6 +17,7 @@ struct PresetsListView: View {
     /// Reorders the presets above the stopwatch. Rows are 24pt tall with 8pt spacing.
     @StateObject private var reorderer = RowReorderer(rowStride: 32)
     @FocusState private var isEditButtonFocused: Bool
+    @Environment(\.openSettings) private var openSettings
 
     private static let focusRingInset: CGFloat = 4
     /// The list's fixed width. `MainPanel` uses it to tell the presets column from the timer column.
@@ -128,8 +129,11 @@ struct PresetsListView: View {
             Button("About MenuBarTimer") {
                 showAboutPanel()
             }
-            SettingsLink {
-                Text("Settings…")
+            Button("Settings…") {
+                // An agent app isn't activated by opening Settings, so its window can open behind
+                // other apps' windows. Activating also covers reopening an already-open window.
+                NSApp.activate()
+                openSettings()
             }
             Divider()
             Button("Quit MenuBarTimer") {

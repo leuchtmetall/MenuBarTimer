@@ -45,14 +45,24 @@ struct SettingsView: View {
         }
         .padding(24)
         .frame(width: 370)
-        .onAppear {
-            DispatchQueue.main.async {
-                NSApp.activate()
-                guard let window = NSApp.keyWindow, !(window is MainPanel) else { return }
-                // Float like the main panel, which would otherwise cover this window.
-                window.level = .floating
-                window.makeKeyAndOrderFront(nil)
-            }
+        .background(SettingsWindowConfigurator())
+    }
+}
+
+/// Brings the Settings window to the front and floats it like the main panel, which would otherwise
+/// cover it. It uses the hosting view's own window: `NSApp.keyWindow` is often still the main panel
+/// (or nil while the app activates) when the Settings window appears.
+private struct SettingsWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { WindowObservingView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class WindowObservingView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            window.level = .floating
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
         }
     }
 }
