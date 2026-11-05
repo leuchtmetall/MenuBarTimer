@@ -12,6 +12,8 @@ struct PresetsListView: View {
     @ObservedObject var groupsStore: TimerGroupsStore
     @ObservedObject var groupCoordinator: TimerGroupCoordinator
     @State private var isEditing = false
+    /// Whether edit mode uses the wider column. Kept across edit sessions; ignored outside edit mode.
+    @State private var isEditExpanded = false
     @State private var draggedPresetID: UUID?
     @State private var dragStartIndex: Int?
     @State private var dragTargetIndex: Int?
@@ -26,6 +28,12 @@ struct PresetsListView: View {
     private static let focusRingInset: CGFloat = 4
     /// The list's fixed width. `MainPanel` uses it to tell the presets column from the timer column.
     static let width: CGFloat = 280
+    /// The list's width in expanded edit mode, which gives the group editor's name fields more room.
+    static let expandedWidth: CGFloat = 520
+
+    private var columnWidth: CGFloat {
+        isEditing && isEditExpanded ? Self.expandedWidth : Self.width
+    }
 
     /// The presets that are listed (and can be reordered) above the stopwatch. Drag indices refer
     /// to this list, not to `presetsStore.presets`, which also contains the stopwatch somewhere.
@@ -78,7 +86,8 @@ struct PresetsListView: View {
             .padding(-Self.focusRingInset)
         }
         .padding(24)
-        .frame(width: Self.width)
+        .frame(width: columnWidth)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { MainPanel.presetsColumnWidth = $0 }
         .onDisappear { resetDrag() }
         // The Edit button is the initially focused control whenever the window opens.
         .onAppear { focusEditButton() }
@@ -95,6 +104,20 @@ struct PresetsListView: View {
                 .font(.headline)
 
             Spacer()
+
+            if isEditing {
+                let title = isEditExpanded ? "Collapse editor" : "Expand editor"
+                Button {
+                    isEditExpanded.toggle()
+                } label: {
+                    Image(systemName: isEditExpanded
+                          ? "arrow.down.right.and.arrow.up.left"
+                          : "arrow.up.left.and.arrow.down.right")
+                }
+                .buttonStyle(.glass)
+                .help(title)
+                .accessibilityLabel(title)
+            }
 
             Button(isEditing ? "Done" : "Edit") {
                 isEditing.toggle()

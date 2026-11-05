@@ -12,3 +12,4 @@ ToDo:
 - alternate small menu bar timer, set directly from main UI (for smaller screens, where the menu items don't leave enough space)
 - also show elapsed time in small font (optional)
 - bigger close button for better visual balance
+- close window with two-finger-swipe to the right (like notifications)

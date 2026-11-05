@@ -181,6 +181,10 @@ final class MainPanel: NSPanel {
         super.sendEvent(event)
     }
 
+    /// The presets column's current width, which changes in expanded edit mode. Written by
+    /// `PresetsListView` whenever its width changes; read only when computing the tab order.
+    static var presetsColumnWidth: CGFloat = PresetsListView.width
+
     /// Virtual key code (`NSEvent.keyCode`) of the Tab key.
     private static let tabKeyCode: UInt16 = 48
 
@@ -233,7 +237,7 @@ final class MainPanel: NSPanel {
         }
         collect(contentView)
 
-        let presetsColumnMinX = contentView.bounds.maxX - PresetsListView.width
+        let presetsColumnMinX = contentView.bounds.maxX - Self.presetsColumnWidth
         let columns = [
             candidates.filter { $0.frame.midX < presetsColumnMinX },
             candidates.filter { $0.frame.midX >= presetsColumnMinX },
