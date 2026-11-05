@@ -14,17 +14,10 @@ struct PresetsListView: View {
     @State private var isEditing = false
     /// Whether edit mode uses the wider column. Kept across edit sessions; ignored outside edit mode.
     @State private var isEditExpanded = false
-    @State private var draggedPresetID: UUID?
-    @State private var dragStartIndex: Int?
-    @State private var dragTargetIndex: Int?
-    @State private var dragOffset: CGFloat = 0
-    @State private var escapeMonitor: Any?
-    @State private var isDragCancelled = false
+    /// Reorders the presets above the stopwatch. Rows are 24pt tall with 8pt spacing.
+    @StateObject private var reorderer = RowReorderer(rowStride: 32)
     @FocusState private var isEditButtonFocused: Bool
 
-    private let editRowStride: CGFloat = 32
-    /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a reorder drag.
-    private static let escapeKeyCode: UInt16 = 53
     private static let focusRingInset: CGFloat = 4
     /// The list's fixed width. `MainPanel` uses it to tell the presets column from the timer column.
     static let width: CGFloat = 280
@@ -88,7 +81,7 @@ struct PresetsListView: View {
         .padding(24)
         .frame(width: columnWidth)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { MainPanel.presetsColumnWidth = $0 }
-        .onDisappear { resetDrag() }
+        .onDisappear { reorderer.reset() }
         // The Edit button is the initially focused control whenever the window opens.
         .onAppear { focusEditButton() }
         .onReceive(NotificationCenter.default.publisher(for: MainWindowController.didShowNotification)) { _ in
@@ -121,7 +114,7 @@ struct PresetsListView: View {
 
             Button(isEditing ? "Done" : "Edit") {
                 isEditing.toggle()
-                resetDrag()
+                reorderer.reset()
             }
             .buttonStyle(.glass)
             .focused($isEditButtonFocused)
@@ -205,26 +198,20 @@ struct PresetsListView: View {
     }
 
     private func editablePresetRow(for preset: TimerPreset) -> some View {
-        let isDragged = draggedPresetID == preset.id
+        let ids = reorderablePresetIDs
         return HStack(spacing: 8) {
             if preset.isStopwatch {
                 Label("Stopwatch", systemImage: "stopwatch")
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Image(systemName: "line.3.horizontal")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 18, height: 24)
-                    .contentShape(Rectangle())
-                    .help("Drag to rearrange preset")
-                    .gesture(reorderGesture(for: preset))
+                ReorderHandle(help: "Drag to rearrange preset")
+                    .gesture(reorderer.gesture(for: preset.id, in: ids, onMove: movePreset))
                 DurationPicker(duration: durationBinding(for: preset))
                 RemoveButton { presetsStore.removePreset(preset) }
             }
         }
-        .offset(y: rowOffset(for: preset))
-        .opacity(isDragged ? 0.65 : 1)
-        .zIndex(isDragged ? 1 : 0)
-        .animation(isDragged ? nil : .easeOut(duration: 0.1), value: dragTargetIndex)
+        // The stopwatch isn't in `ids`, so it never moves.
+        .reorderableRow(preset.id, in: ids, reorderer: reorderer)
     }
 
     private func selectablePresetRow(for preset: TimerPreset) -> some View {
@@ -267,7 +254,7 @@ struct PresetsListView: View {
     @ViewBuilder
     private func groupRow(for group: TimerGroup) -> some View {
         if isEditing {
-            TimerGroupEditor(groupsStore: groupsStore, group: group)
+            TimerGroupEditor(groupsStore: groupsStore, group: group, isReorderable: isEditExpanded)
         } else {
             selectableGroupRow(for: group)
         }
@@ -324,100 +311,14 @@ struct PresetsListView: View {
 
     // MARK: Reordering
 
-    private func reorderGesture(for preset: TimerPreset) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .global)
-            .onChanged { value in
-                guard !isDragCancelled else { return }
-                if draggedPresetID == nil {
-                    beginDrag(of: preset)
-                }
+    private var reorderablePresetIDs: [UUID] { reorderablePresets.map(\.id) }
 
-                guard draggedPresetID == preset.id, let dragStartIndex else { return }
-                dragOffset = value.translation.height
-                let indexOffset = Int((dragOffset / editRowStride).rounded())
-                dragTargetIndex = min(
-                    max(0, dragStartIndex + indexOffset),
-                    reorderablePresets.count - 1
-                )
-            }
-            .onEnded { _ in
-                if !isDragCancelled, draggedPresetID == preset.id {
-                    commitDrag(of: preset)
-                }
-                resetDrag()
-            }
-    }
-
-    private func beginDrag(of preset: TimerPreset) {
-        draggedPresetID = preset.id
-        dragStartIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id })
-        dragTargetIndex = dragStartIndex
-        monitorEscapeKey()
-    }
-
-    private func commitDrag(of preset: TimerPreset) {
-        guard let dragTargetIndex, reorderablePresets.indices.contains(dragTargetIndex) else { return }
+    private func movePreset(_ presetID: UUID, toReorderableIndex targetIndex: Int) {
         // Taking the target preset's place puts the dragged one before it when moving up and after
         // it when moving down, wherever the stopwatch sits in the array.
-        let targetID = reorderablePresets[dragTargetIndex].id
+        let targetID = reorderablePresets[targetIndex].id
         guard let storeIndex = presetsStore.presets.firstIndex(where: { $0.id == targetID }) else { return }
-        presetsStore.movePreset(preset.id, toIndex: storeIndex)
-    }
-
-    /// How far a row is shifted while a drag is in progress: the dragged row follows the pointer,
-    /// and the rows between its start and target slide one place to make room.
-    private func rowOffset(for preset: TimerPreset) -> CGFloat {
-        guard let draggedPresetID, let dragStartIndex, let dragTargetIndex,
-              let rowIndex = reorderablePresets.firstIndex(where: { $0.id == preset.id }) else {
-            return 0
-        }
-
-        if preset.id == draggedPresetID {
-            return dragOffset
-        }
-        if dragTargetIndex > dragStartIndex,
-           rowIndex > dragStartIndex,
-           rowIndex <= dragTargetIndex {
-            return -editRowStride
-        }
-        if dragTargetIndex < dragStartIndex,
-           rowIndex >= dragTargetIndex,
-           rowIndex < dragStartIndex {
-            return editRowStride
-        }
-        return 0
-    }
-
-    private func monitorEscapeKey() {
-        guard escapeMonitor == nil else { return }
-        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard event.keyCode == Self.escapeKeyCode else { return event }
-            DispatchQueue.main.async {
-                cancelDrag()
-            }
-            return nil
-        }
-    }
-
-    private func cancelDrag() {
-        clearDragState()
-        isDragCancelled = true
-    }
-
-    private func resetDrag() {
-        clearDragState()
-        isDragCancelled = false
-    }
-
-    private func clearDragState() {
-        if let escapeMonitor {
-            NSEvent.removeMonitor(escapeMonitor)
-            self.escapeMonitor = nil
-        }
-        draggedPresetID = nil
-        dragStartIndex = nil
-        dragTargetIndex = nil
-        dragOffset = 0
+        presetsStore.movePreset(presetID, toIndex: storeIndex)
     }
 }
 
@@ -425,6 +326,13 @@ struct PresetsListView: View {
 private struct TimerGroupEditor: View {
     @ObservedObject var groupsStore: TimerGroupsStore
     let group: TimerGroup
+    /// Whether timer rows have a drag handle for reordering; only the expanded editor shows one.
+    let isReorderable: Bool
+    @StateObject private var reorderer = RowReorderer(rowStride: Self.timerRowHeight + Self.rowSpacing)
+
+    /// Every timer row is this tall, whatever controls it shows, so the reorder drag has a fixed stride.
+    private static let timerRowHeight: CGFloat = 24
+    private static let rowSpacing: CGFloat = 5
 
     /// The store's current copy of the group; `group` may be stale between edits.
     private var currentGroup: TimerGroup? {
@@ -432,7 +340,7 @@ private struct TimerGroupEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: Self.rowSpacing) {
             HStack {
                 TextField("Group name", text: nameBinding)
                 Button {
@@ -457,10 +365,19 @@ private struct TimerGroupEditor: View {
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
         }
+        .onDisappear { reorderer.reset() }
+        .onChange(of: isReorderable) { reorderer.reset() }
     }
 
     private func timerRow(for timer: TimerPreset) -> some View {
-        HStack(spacing: 5) {
+        let ids = group.timers.map(\.id)
+        return HStack(spacing: 5) {
+            if isReorderable {
+                ReorderHandle(help: "Drag to rearrange timer")
+                    .gesture(reorderer.gesture(for: timer.id, in: ids) { id, targetIndex in
+                        groupsStore.moveTimer(id, in: group, toIndex: targetIndex)
+                    })
+            }
             Picker("Type", selection: binding(for: timer, \.type)) {
                 Image(systemName: "arrow.up").imageScale(.small).tag(TimerType.countUp)
                 Image(systemName: "arrow.down").imageScale(.small).tag(TimerType.countdown)
@@ -474,6 +391,8 @@ private struct TimerGroupEditor: View {
             RemoveButton { groupsStore.removeTimer(timer, from: group) }
                 .disabled(group.timers.count == 1)
         }
+        .frame(height: Self.timerRowHeight)
+        .reorderableRow(timer.id, in: ids, reorderer: reorderer)
     }
 
     private var nameBinding: Binding<String> {

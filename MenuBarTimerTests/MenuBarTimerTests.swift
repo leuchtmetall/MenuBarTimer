@@ -355,6 +355,48 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerGroupDuplicateTests")
     }
 
+    @Test func movingGroupTimerReordersWithinBounds() {
+        let defaults = UserDefaults(suiteName: "TimerGroupMoveTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupMoveTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        store.addTimer(to: store.groups[0])
+        let ids = store.groups[0].timers.map(\.id)
+
+        store.moveTimer(ids[0], in: store.groups[0], toIndex: 2)
+        #expect(store.groups[0].timers.map(\.id) == [ids[1], ids[2], ids[0]])
+
+        store.moveTimer(ids[0], in: store.groups[0], toIndex: 1)
+        #expect(store.groups[0].timers.map(\.id) == [ids[1], ids[0], ids[2]])
+
+        store.moveTimer(ids[2], in: store.groups[0], toIndex: 3)
+        #expect(store.groups[0].timers.map(\.id) == [ids[1], ids[0], ids[2]])
+
+        defaults.removePersistentDomain(forName: "TimerGroupMoveTests")
+    }
+
+    @Test func reorderingGroupTimersKeepsTheirState() {
+        let defaults = UserDefaults(suiteName: "TimerGroupReorderStateTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupReorderStateTests")
+        let first = TimerPreset(seconds: 60, name: "Work")
+        let second = TimerPreset(seconds: 30, name: "Break")
+        var group = TimerGroup(name: "Focus", timers: [first, second])
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+        model.start(second)
+        let secondTimer = model.timerModels[1]
+
+        group.timers.reverse()
+        model.updateDefinition(group)
+
+        #expect(model.group.timers.map(\.id) == [second.id, first.id])
+        #expect(model.timerModels[0] === secondTimer)
+        #expect(model.timerModels[0].state == .running)
+        #expect(model.timerModels[1].preset.id == first.id)
+        #expect(model.activeTimerID == second.id)
+
+        defaults.removePersistentDomain(forName: "TimerGroupReorderStateTests")
+    }
+
     @Test func selectedModeIsRestoredForBothStores() {
         let defaults = UserDefaults(suiteName: "SelectedTimerKindTests")!
         defaults.removePersistentDomain(forName: "SelectedTimerKindTests")

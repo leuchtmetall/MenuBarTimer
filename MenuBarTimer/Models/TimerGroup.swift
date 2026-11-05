@@ -121,6 +121,16 @@ final class TimerGroupsStore: ObservableObject {
         update(current)
     }
 
+    /// Moves a timer within its group so that it ends up at `targetIndex`.
+    func moveTimer(_ timerID: UUID, in group: TimerGroup, toIndex targetIndex: Int) {
+        guard var current = groups.first(where: { $0.id == group.id }),
+              let sourceIndex = current.timers.firstIndex(where: { $0.id == timerID }),
+              current.timers.indices.contains(targetIndex),
+              sourceIndex != targetIndex else { return }
+        current.timers.insert(current.timers.remove(at: sourceIndex), at: targetIndex)
+        update(current)
+    }
+
     func removeTimer(_ timer: TimerPreset, from group: TimerGroup) {
         guard var current = groups.first(where: { $0.id == group.id }), current.timers.count > 1 else { return }
         current.timers.removeAll { $0.id == timer.id }
@@ -157,7 +167,9 @@ final class TimerGroupCoordinator: ObservableObject {
         }
         let currentTimerIDs = model?.group.timers.map { $0.id }
         let newTimerIDs = group.timers.map { $0.id }
-        if let model, model.group.id == group.id, currentTimerIDs == newTimerIDs {
+        // The same timers in a new order are an edit too: the model reorders its timers without resetting them.
+        if let model, model.group.id == group.id, let currentTimerIDs,
+           currentTimerIDs.count == newTimerIDs.count, Set(currentTimerIDs) == Set(newTimerIDs) {
             model.updateDefinition(group)
         } else {
             let newModel = TimerGroupModel(group: group)
@@ -205,18 +217,26 @@ final class TimerGroupModel: ObservableObject {
         }
     }
 
+    /// Applies an edited definition of the same group. The timers may have been reordered, but must be
+    /// the same set; each keeps its running state unless its type or duration changed.
     func updateDefinition(_ group: TimerGroup) {
-        guard group.id == self.group.id, group.timers.count == timerModels.count else { return }
+        let previousByID = Dictionary(uniqueKeysWithValues: zip(self.group.timers.map(\.id), zip(self.group.timers, timerModels)))
+        guard group.id == self.group.id, group.timers.count == timerModels.count,
+              group.timers.allSatisfy({ previousByID[$0.id] != nil }) else { return }
 
-        for (index, definition) in group.timers.enumerated() {
-            let previous = self.group.timers[index]
+        var reorderedModels: [TimerModel] = []
+        for definition in group.timers {
+            guard let (previous, timer) = previousByID[definition.id] else { return }
             if previous.type != definition.type || previous.seconds != definition.seconds {
-                timerModels[index].load(definition)
+                timer.load(definition)
             } else {
                 // Name/color edits must reach the timer model too: the menu bar label reads them from there.
-                timerModels[index].updateDisplayDetails(from: definition)
+                timer.updateDisplayDetails(from: definition)
             }
+            reorderedModels.append(timer)
         }
+        // `TimerControlView` pairs `group.timers` and `timerModels` by index, so both must change together.
+        if !reorderedModels.elementsEqual(timerModels, by: ===) { timerModels = reorderedModels }
         self.group = group
     }
 
