@@ -105,6 +105,7 @@ final class MainWindowController: NSObject {
         )
         panel.contentView = container
         panel.onCancel = { [weak self] in self?.hide() }
+        panel.onSwipeDismiss = { [weak self] in self?.hide() }
         panel.level = .floating
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
@@ -159,6 +160,71 @@ final class MainPanel: NSPanel {
         onCancel?()
     }
 
+    // MARK: Swipe to dismiss
+
+    /// Called after a two-finger swipe to the right has slid the panel away.
+    var onSwipeDismiss: (() -> Void)?
+
+    private var swipeTracker = SwipeToDismissTracker()
+    /// The panel's origin when the current swipe began; the panel returns here afterwards.
+    private var swipeStartOrigin: CGPoint?
+
+    /// Moves the panel along with a two-finger swipe to the right and dismisses it on release, like a
+    /// notification. Returns whether the event was consumed.
+    private func handleSwipe(_ event: NSEvent) -> Bool {
+        guard let sample = SwipeToDismissTracker.Sample(event) else { return false }
+        switch swipeTracker.handle(sample) {
+        case .passThrough:
+            return false
+        case .ignore:
+            return true
+        case .track(let offset):
+            let start = swipeStartOrigin ?? frame.origin
+            swipeStartOrigin = start
+            setFrameOrigin(CGPoint(x: start.x + offset, y: start.y))
+            alphaValue = 1 - min(offset / frame.width, 1) * 0.7
+        case .restore:
+            guard let start = swipeStartOrigin else { return true }
+            swipeStartOrigin = nil
+            // A window's animator only animates `setFrame(_:display:)`; `setFrameOrigin` jumps or is
+            // dropped, so both animations go through the full frame.
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                animator().setFrame(CGRect(origin: start, size: frame.size), display: true)
+                animator().alphaValue = 1
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.swipeStartOrigin == nil else { return }
+                    self.setFrameOrigin(start)
+                    self.alphaValue = 1
+                }
+            }
+        case .dismiss(let velocity):
+            guard let start = swipeStartOrigin else { return true }
+            swipeStartOrigin = nil
+            let screenMaxX = (screen ?? NSScreen.main)?.frame.maxX ?? frame.maxX
+            let targetX = max(screenMaxX, frame.minX + frame.width) + 20
+            let distance = targetX - frame.minX
+            NSAnimationContext.runAnimationGroup { context in
+                // Keep at least the finger's speed, but never drag on.
+                context.duration = min(0.25, max(0.1, Double(distance / max(velocity, 1))))
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                animator().setFrame(CGRect(origin: CGPoint(x: targetX, y: start.y), size: frame.size), display: true)
+                animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.onSwipeDismiss?()
+                    // Reopening shows the panel where it was before the swipe.
+                    self.setFrameOrigin(start)
+                    self.alphaValue = 1
+                }
+            }
+        }
+        return true
+    }
+
     // MARK: Tab order
 
     // SwiftUI's own key view loop is unusable here: it runs across both columns by vertical position
@@ -172,6 +238,7 @@ final class MainPanel: NSPanel {
     // and get it as usual; they leave through `selectNextKeyView` / `selectPreviousKeyView`.
 
     override func sendEvent(_ event: NSEvent) {
+        if handleSwipe(event) { return }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option])
         if event.type == .keyDown, event.keyCode == Self.tabKeyCode, modifiers.isEmpty,
            !(firstResponder is TabKeyHandling) {
