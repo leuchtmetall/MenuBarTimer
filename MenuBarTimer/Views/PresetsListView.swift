@@ -22,7 +22,7 @@ struct PresetsListView: View {
     /// The list's fixed width. `MainPanel` uses it to tell the presets column from the timer column.
     static let width: CGFloat = 280
     /// The list's width in expanded edit mode, which gives the group editor's name fields more room.
-    static let expandedWidth: CGFloat = 520
+    static let expandedWidth: CGFloat = 400
 
     private var columnWidth: CGFloat {
         isEditing && isEditExpanded ? Self.expandedWidth : Self.width
