@@ -34,6 +34,7 @@ struct SettingsView: View {
                             TimerCompletionNotifier.requestAuthorization()
                         }
                     }
+                Toggle("Swipe right with two fingers to close the window", isOn: $settings.swipeToDismissPanel)
             }
 
             HStack {

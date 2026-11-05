@@ -170,8 +170,9 @@ final class MainPanel: NSPanel {
     private var swipeStartOrigin: CGPoint?
 
     /// Moves the panel along with a two-finger swipe to the right and dismisses it on release, like a
-    /// notification. Returns whether the event was consumed.
+    /// notification. Returns whether the event was consumed. Does nothing when the setting is off.
     private func handleSwipe(_ event: NSEvent) -> Bool {
+        guard swipeStartOrigin != nil || AppSettings.swipeToDismissEnabled(in: .standard) else { return false }
         guard let sample = SwipeToDismissTracker.Sample(event) else { return false }
         switch swipeTracker.handle(sample) {
         case .passThrough:

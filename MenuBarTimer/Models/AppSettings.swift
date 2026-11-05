@@ -44,6 +44,10 @@ final class AppSettings: ObservableObject {
     @Published var showTimerFinishNotification: Bool {
         didSet { userDefaults.set(showTimerFinishNotification, forKey: Self.timerFinishNotificationKey) }
     }
+    /// Close the main panel with a two-finger swipe to the right, like a notification.
+    @Published var swipeToDismissPanel: Bool {
+        didSet { userDefaults.set(swipeToDismissPanel, forKey: Self.swipeToDismissKey) }
+    }
 
     private static let nameDisplayKey = "groupTimerNameDisplay"
     private static let legacyAbbreviateNamesKey = "abbreviateGroupTimerNames"
@@ -52,6 +56,7 @@ final class AppSettings: ObservableObject {
     private static let compactColoredLabelsKey = "useCompactColoredLabels"
     private static let timerColorButtonsKey = "useTimerColorForButtons"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
+    static let swipeToDismissKey = "swipeToDismissPanel"
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -69,9 +74,15 @@ final class AppSettings: ObservableObject {
         useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
         useTimerColorForButtons = userDefaults.object(forKey: Self.timerColorButtonsKey) as? Bool ?? true
         showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true
+        swipeToDismissPanel = Self.swipeToDismissEnabled(in: userDefaults)
     }
 
     static func timerFinishNotificationsEnabled(in userDefaults: UserDefaults) -> Bool {
         userDefaults.object(forKey: timerFinishNotificationKey) as? Bool ?? true
+    }
+
+    /// Read directly by `MainPanel`, which has no access to the `AppSettings` environment object.
+    static func swipeToDismissEnabled(in userDefaults: UserDefaults) -> Bool {
+        userDefaults.object(forKey: swipeToDismissKey) as? Bool ?? true
     }
 }

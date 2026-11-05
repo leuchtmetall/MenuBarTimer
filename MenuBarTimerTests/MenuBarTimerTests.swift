@@ -181,6 +181,20 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "CompactColoredLabelsTests")
     }
 
+    @Test func swipeToDismissSettingDefaultsOnAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "SwipeToDismissSettingTests")!
+        defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")
+
+        #expect(AppSettings(userDefaults: defaults).swipeToDismissPanel)
+        #expect(AppSettings.swipeToDismissEnabled(in: defaults))
+
+        AppSettings(userDefaults: defaults).swipeToDismissPanel = false
+        #expect(AppSettings(userDefaults: defaults).swipeToDismissPanel == false)
+        #expect(AppSettings.swipeToDismissEnabled(in: defaults) == false)
+
+        defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")
+    }
+
     @Test func groupLabelHitTestFindsTimerUnderCursor() {
         let ids = [UUID(), UUID(), UUID()]
         // 100pt of content centered in a 120pt wide status item, so the content starts at x = 10.
