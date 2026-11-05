@@ -1,9 +1,14 @@
 ToDo:
 - custom colors (timer groups)
-- multiple timers
+- multiple timers / timer groups
 - option: count up after reaching zero (for count-down timers)
 - save/load presets
 - sync or remote-control-server (http? in LAN, auto-auth if possible)
   - possible during computer sleep?
 - Stop timer when computer sleeps (optional)
 - optional audible ticks (when window open / always)
+- save completed cycles / streaks for pomodoros
+- timer groups option: auto-start next timer, then reset and repeat (for pomodoro, etc.)
+- alternate small menu bar timer, set directly from main UI (for smaller screens, where the menu items don't leave enough space)
+- also show elapsed time in small font (optional)
+- bigger close button for better visual balance
