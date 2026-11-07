@@ -107,6 +107,14 @@ final class TimerModel: Identifiable, ObservableObject {
             : remaining.formattedClock
     }
 
+    /// The time elapsed since the start of a countdown, formatted like `timeString`.
+    /// Rounded down while `timeString` rounds up, so the two always add up to the full duration.
+    /// `nil` for count-up timers, whose `timeString` already is the elapsed time.
+    var elapsedTimeString: String? {
+        guard !isCountUp else { return nil }
+        return max(totalDuration - remaining, 0).formattedElapsedClock
+    }
+
     /// Loads a preset without starting the timer.
     func load(_ timerPreset: TimerPreset) {
         clearAdjustmentUndo()

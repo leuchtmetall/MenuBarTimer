@@ -21,6 +21,7 @@ struct TimerControlView: View {
 
 private struct SingleTimerControlView: View {
     @ObservedObject var timerModel: TimerModel
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         VStack(spacing: 24) {
@@ -38,6 +39,9 @@ private struct SingleTimerControlView: View {
                     Text(timerModel.timeString)
                         .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit()
+                    if settings.showElapsedTimeForCountdowns, let elapsed = timerModel.elapsedTimeString {
+                        ElapsedTimeText(elapsed: elapsed, size: 15)
+                    }
                     Text(timerModel.state.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -150,6 +154,9 @@ private struct GroupTimerControlPanel: View {
                     Text(timer.timeString)
                         .font(.system(size: 25, weight: .semibold, design: .rounded))
                         .monospacedDigit()
+                    if settings.showElapsedTimeForCountdowns, let elapsed = timer.elapsedTimeString {
+                        ElapsedTimeText(elapsed: elapsed, size: 13)
+                    }
                     Text(timer.state.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -183,6 +190,20 @@ private struct GroupTimerControlPanel: View {
             }
         }
         .frame(width: 190)
+    }
+}
+
+/// The elapsed time of a countdown, shown smaller below its remaining time.
+private struct ElapsedTimeText: View {
+    let elapsed: String
+    let size: CGFloat
+
+    var body: some View {
+        Text(elapsed)
+            .font(.system(size: size, weight: .medium, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Elapsed \(elapsed)")
     }
 }
 

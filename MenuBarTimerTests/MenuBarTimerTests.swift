@@ -181,6 +181,36 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "CompactColoredLabelsTests")
     }
 
+    @Test func countdownElapsedTimeComplementsRemainingTime() {
+        let defaults = UserDefaults(suiteName: "CountdownElapsedTimeTests")!
+        defaults.removePersistentDomain(forName: "CountdownElapsedTimeTests")
+        let timer = TimerModel(userDefaults: defaults)
+
+        timer.load(TimerPreset(seconds: 100))
+        #expect(timer.elapsedTimeString == "00:00")
+
+        timer.setProgress(0.25)
+        #expect(timer.timeString == "01:15")
+        #expect(timer.elapsedTimeString == "00:25")
+
+        timer.load(.stopwatch)
+        #expect(timer.elapsedTimeString == nil)
+
+        defaults.removePersistentDomain(forName: "CountdownElapsedTimeTests")
+    }
+
+    @Test func showElapsedTimeSettingDefaultsOffAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "ShowElapsedTimeSettingTests")!
+        defaults.removePersistentDomain(forName: "ShowElapsedTimeSettingTests")
+
+        #expect(AppSettings(userDefaults: defaults).showElapsedTimeForCountdowns == false)
+
+        AppSettings(userDefaults: defaults).showElapsedTimeForCountdowns = true
+        #expect(AppSettings(userDefaults: defaults).showElapsedTimeForCountdowns)
+
+        defaults.removePersistentDomain(forName: "ShowElapsedTimeSettingTests")
+    }
+
     @Test func swipeToDismissSettingDefaultsOnAndIsPersisted() {
         let defaults = UserDefaults(suiteName: "SwipeToDismissSettingTests")!
         defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")

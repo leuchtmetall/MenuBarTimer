@@ -28,6 +28,7 @@ struct SettingsView: View {
                     .disabled(!settings.useGroupTimerColors)
                     .help("Smaller progress circles, and smaller seconds when hours are shown")
                 Toggle("Use timer colors for start buttons", isOn: $settings.useTimerColorForButtons)
+                Toggle("Show elapsed time below countdown timers", isOn: $settings.showElapsedTimeForCountdowns)
                 Toggle("Show a notification when a timer finishes", isOn: $settings.showTimerFinishNotification)
                     .onChange(of: settings.showTimerFinishNotification) { _, isEnabled in
                         if isEnabled {

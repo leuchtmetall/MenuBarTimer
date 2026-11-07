@@ -41,6 +41,10 @@ final class AppSettings: ObservableObject {
     @Published var useTimerColorForButtons: Bool {
         didSet { userDefaults.set(useTimerColorForButtons, forKey: Self.timerColorButtonsKey) }
     }
+    /// Countdown timers only: show the elapsed time in a smaller font below the remaining time.
+    @Published var showElapsedTimeForCountdowns: Bool {
+        didSet { userDefaults.set(showElapsedTimeForCountdowns, forKey: Self.showElapsedTimeKey) }
+    }
     @Published var showTimerFinishNotification: Bool {
         didSet { userDefaults.set(showTimerFinishNotification, forKey: Self.timerFinishNotificationKey) }
     }
@@ -55,6 +59,7 @@ final class AppSettings: ObservableObject {
     private static let groupTimerColorsKey = "useGroupTimerColors"
     private static let compactColoredLabelsKey = "useCompactColoredLabels"
     private static let timerColorButtonsKey = "useTimerColorForButtons"
+    private static let showElapsedTimeKey = "showElapsedTimeForCountdowns"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
     static let swipeToDismissKey = "swipeToDismissPanel"
     private let userDefaults: UserDefaults
@@ -73,6 +78,7 @@ final class AppSettings: ObservableObject {
         useGroupTimerColors = userDefaults.object(forKey: Self.groupTimerColorsKey) as? Bool ?? false
         useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
         useTimerColorForButtons = userDefaults.object(forKey: Self.timerColorButtonsKey) as? Bool ?? true
+        showElapsedTimeForCountdowns = userDefaults.object(forKey: Self.showElapsedTimeKey) as? Bool ?? false
         showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true
         swipeToDismissPanel = Self.swipeToDismissEnabled(in: userDefaults)
     }
