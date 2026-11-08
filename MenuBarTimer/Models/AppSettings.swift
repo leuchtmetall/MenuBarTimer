@@ -37,6 +37,10 @@ final class AppSettings: ObservableObject {
     @Published var useCompactColoredLabels: Bool {
         didSet { userDefaults.set(useCompactColoredLabels, forKey: Self.compactColoredLabelsKey) }
     }
+    /// Group mode only: show just the running (or most recently active) timer in the menu bar.
+    @Published var showOnlyActiveGroupTimer: Bool {
+        didSet { userDefaults.set(showOnlyActiveGroupTimer, forKey: Self.showOnlyActiveGroupTimerKey) }
+    }
     /// Tint each group timer's start/pause button with the timer's color.
     @Published var useTimerColorForButtons: Bool {
         didSet { userDefaults.set(useTimerColorForButtons, forKey: Self.timerColorButtonsKey) }
@@ -58,6 +62,7 @@ final class AppSettings: ObservableObject {
     private static let showProgressKey = "showGroupTimerProgress"
     private static let groupTimerColorsKey = "useGroupTimerColors"
     private static let compactColoredLabelsKey = "useCompactColoredLabels"
+    private static let showOnlyActiveGroupTimerKey = "showOnlyActiveGroupTimer"
     private static let timerColorButtonsKey = "useTimerColorForButtons"
     private static let showElapsedTimeKey = "showElapsedTimeForCountdowns"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
@@ -77,6 +82,7 @@ final class AppSettings: ObservableObject {
         showGroupTimerProgress = userDefaults.object(forKey: Self.showProgressKey) as? Bool ?? true
         useGroupTimerColors = userDefaults.object(forKey: Self.groupTimerColorsKey) as? Bool ?? false
         useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
+        showOnlyActiveGroupTimer = userDefaults.object(forKey: Self.showOnlyActiveGroupTimerKey) as? Bool ?? false
         useTimerColorForButtons = userDefaults.object(forKey: Self.timerColorButtonsKey) as? Bool ?? true
         showElapsedTimeForCountdowns = userDefaults.object(forKey: Self.showElapsedTimeKey) as? Bool ?? false
         showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true

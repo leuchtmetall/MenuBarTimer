@@ -225,6 +225,54 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")
     }
 
+    @Test func showOnlyActiveGroupTimerSettingDefaultsOffAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "ShowOnlyActiveGroupTimerTests")!
+        defaults.removePersistentDomain(forName: "ShowOnlyActiveGroupTimerTests")
+
+        #expect(AppSettings(userDefaults: defaults).showOnlyActiveGroupTimer == false)
+
+        AppSettings(userDefaults: defaults).showOnlyActiveGroupTimer = true
+        #expect(AppSettings(userDefaults: defaults).showOnlyActiveGroupTimer)
+
+        defaults.removePersistentDomain(forName: "ShowOnlyActiveGroupTimerTests")
+    }
+
+    @Test func groupActiveTimerIsRestored() {
+        let defaults = UserDefaults(suiteName: "TimerGroupActiveTimerTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupActiveTimerTests")
+        let first = TimerPreset(seconds: 60, name: "First", colorName: "blue")
+        let second = TimerPreset(seconds: 120, name: "Second", colorName: "green")
+        let group = TimerGroup(timers: [first, second])
+
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+        #expect(model.activeTimerID == first.id)
+        model.start(second)
+        model.start(second) // pausing keeps it the most recently active timer
+        #expect(TimerGroupModel(group: group, userDefaults: defaults).activeTimerID == second.id)
+
+        model.resetAll()
+        #expect(TimerGroupModel(group: group, userDefaults: defaults).activeTimerID == first.id)
+
+        defaults.removePersistentDomain(forName: "TimerGroupActiveTimerTests")
+    }
+
+    @Test func removingGroupDeletesSavedActiveTimer() {
+        let defaults = UserDefaults(suiteName: "TimerGroupActiveTimerCleanupTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupActiveTimerCleanupTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        let group = store.groups[0]
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+        model.start(group.timers[1])
+        let key = TimerGroupModel.activeTimerKey(for: group)
+        #expect(defaults.string(forKey: key) == group.timers[1].id.uuidString)
+
+        store.remove(group)
+        #expect(defaults.string(forKey: key) == nil)
+
+        defaults.removePersistentDomain(forName: "TimerGroupActiveTimerCleanupTests")
+    }
+
     @Test func groupLabelHitTestFindsTimerUnderCursor() {
         let ids = [UUID(), UUID(), UUID()]
         // 100pt of content centered in a 120pt wide status item, so the content starts at x = 10.

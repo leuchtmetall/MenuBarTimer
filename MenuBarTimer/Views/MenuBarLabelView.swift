@@ -77,10 +77,18 @@ struct MenuBarLabelView: View {
         }
     }
 
+    /// The group timers shown in the label: all of them, or in compact mode only the active one.
+    private func displayedTimerModels(for groupModel: TimerGroupModel) -> [TimerModel] {
+        guard settings.showOnlyActiveGroupTimer else { return groupModel.timerModels }
+        let active = groupModel.timerModels.first { $0.preset.id == groupModel.activeTimerID }
+            ?? groupModel.timerModels.first
+        return active.map { [$0] } ?? []
+    }
+
     /// The text of every timer in the plain-text group label, paired with its `TimerPreset.id`.
     /// Shared by the label itself and by its measurement so the two cannot drift apart.
     private func groupLabelSegments(for groupModel: TimerGroupModel) -> [(id: UUID, text: String)] {
-        groupModel.timerModels.map { timerModel in
+        displayedTimerModels(for: groupModel).map { timerModel in
             let name = displayName(for: timerModel)
             let prefix = name.isEmpty ? "" : name + " "
             return (timerModel.preset.id, prefix + timerModel.timeString)
@@ -108,7 +116,8 @@ struct MenuBarLabelView: View {
     private func coloredGroupLabelImage(for groupModel: TimerGroupModel) -> NSImage {
         let isCompact = settings.useCompactColoredLabels
         let ringSize = isCompact ? compactIconSize : iconSize
-        let items = groupModel.timerModels.map { timerModel in
+        let timerModels = displayedTimerModels(for: groupModel)
+        let items = timerModels.map { timerModel in
             GroupTimerLabelItem(
                 name: displayName(for: timerModel),
                 timeString: timerModel.timeString,
@@ -129,7 +138,7 @@ struct MenuBarLabelView: View {
 
         layout.update(
             segments: MenuBarLabelLayout.distribute(
-                ids: groupModel.timerModels.map { $0.preset.id },
+                ids: timerModels.map { $0.preset.id },
                 widths: items.map { viewWidth(of: $0) },
                 gap: ColoredGroupMenuBarLabel.spacing,
                 leadingInset: ColoredGroupMenuBarLabel.leadingPadding

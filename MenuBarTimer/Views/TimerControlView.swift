@@ -83,15 +83,13 @@ private struct SingleTimerControlView: View {
 
 private struct TimerGroupControlView: View {
     @ObservedObject var groupModel: TimerGroupModel
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 0) {
-            // Matches the presets list header (same top padding and control size) so this button
-            // lines up with its Edit button. Space is always reserved so the popover doesn't jump.
-            resetButton
-                .opacity(groupModel.isInInitialState ? 0 : 1)
-                .disabled(groupModel.isInInitialState)
-                .accessibilityHidden(groupModel.isInInitialState)
+            // Matches the presets list header (same top padding and control size) so these buttons
+            // line up with its Edit button.
+            headerRow
 
             Spacer(minLength: 12)
 
@@ -107,9 +105,9 @@ private struct TimerGroupControlView: View {
 
             Spacer(minLength: 12)
 
-            // Invisible counterweight with the button's exact height, so the timers are
-            // centered on the full window height rather than the space below the button.
-            resetButton
+            // Invisible counterweight with the header's exact height, so the timers are
+            // centered on the full window height rather than the space below the header.
+            headerRow
                 .hidden()
                 .accessibilityHidden(true)
         }
@@ -119,6 +117,23 @@ private struct TimerGroupControlView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 24)
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var headerRow: some View {
+        HStack(spacing: 8) {
+            Toggle(isOn: $settings.showOnlyActiveGroupTimer) {
+                Label("Compact", systemImage: "rectangle.compress.vertical")
+            }
+            .toggleStyle(.button)
+            .buttonStyle(.glass)
+            .help("Show only the active timer in the menu bar")
+
+            // Space is always reserved so the popover doesn't jump.
+            resetButton
+                .opacity(groupModel.isInInitialState ? 0 : 1)
+                .disabled(groupModel.isInInitialState)
+                .accessibilityHidden(groupModel.isInInitialState)
+        }
     }
 
     private var resetButton: some View {

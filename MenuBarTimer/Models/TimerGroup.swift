@@ -85,6 +85,7 @@ final class TimerGroupsStore: ObservableObject {
     func remove(_ group: TimerGroup) {
         groups.removeAll { $0.id == group.id }
         group.timers.forEach(removeSavedState)
+        userDefaults.removeObject(forKey: TimerGroupModel.activeTimerKey(for: group))
         if selectedGroupID == group.id {
             selectedGroupID = groups.first?.id
             if selectedGroupID == nil { SelectedTimerKind.clear(in: userDefaults) }
@@ -184,15 +185,26 @@ final class TimerGroupCoordinator: ObservableObject {
 final class TimerGroupModel: ObservableObject {
     @Published private(set) var group: TimerGroup
     @Published private(set) var timerModels: [TimerModel]
-    @Published var activeTimerID: UUID?
+    /// The running timer, or the one that ran most recently. Persisted so compact mode shows the same
+    /// timer after a relaunch.
+    @Published var activeTimerID: UUID? {
+        didSet { saveActiveTimer() }
+    }
     private var timerCancellables = Set<AnyCancellable>()
+    private let userDefaults: UserDefaults
 
     init(group: TimerGroup, userDefaults: UserDefaults = .standard) {
         self.group = group
+        self.userDefaults = userDefaults
         self.timerModels = group.timers.map {
             TimerModel(userDefaults: userDefaults, savedStateKey: Self.savedStateKey(for: $0))
         }
-        self.activeTimerID = group.timers.first?.id
+        if let value = userDefaults.string(forKey: Self.activeTimerKey(for: group)),
+           let id = UUID(uuidString: value), group.timers.contains(where: { $0.id == id }) {
+            self.activeTimerID = id
+        } else {
+            self.activeTimerID = group.timers.first?.id
+        }
         for (index, definition) in group.timers.enumerated() {
             let timer = timerModels[index]
             // The group may have been edited while it wasn't loaded, leaving the saved state stale.
@@ -207,6 +219,16 @@ final class TimerGroupModel: ObservableObject {
 
     static func savedStateKey(for timer: TimerPreset) -> String {
         "timerGroupState-\(timer.id.uuidString)"
+    }
+
+    static func activeTimerKey(for group: TimerGroup) -> String {
+        "timerGroupActiveTimer-\(group.id.uuidString)"
+    }
+
+    private func saveActiveTimer() {
+        let key = Self.activeTimerKey(for: group)
+        if let activeTimerID { userDefaults.set(activeTimerID.uuidString, forKey: key) }
+        else { userDefaults.removeObject(forKey: key) }
     }
 
     private func observeTimers() {
