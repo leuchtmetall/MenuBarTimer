@@ -503,6 +503,33 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerGroupMoveTests")
     }
 
+    @Test func updatingGroupEditsTheStoresCurrentCopy() {
+        let defaults = UserDefaults(suiteName: "TimerGroupUpdateTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupUpdateTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        let stale = store.groups[0]
+        store.addTimer(to: stale)
+
+        // The edit sees the timer added after `stale` was taken.
+        #expect(store.updateGroup(id: stale.id) { $0.name = "Renamed" })
+        #expect(store.groups[0].name == "Renamed")
+        #expect(store.groups[0].timers.count == 3)
+        #expect(TimerGroupsStore(userDefaults: defaults).groups[0].name == "Renamed")
+
+        // No-op edits and unknown groups report that nothing changed.
+        #expect(!store.updateGroup(id: stale.id) { $0.name = "Renamed" })
+        #expect(!store.updateGroup(id: UUID()) { $0.name = "Missing" })
+
+        // The last timer of a group can't be removed.
+        store.removeTimer(store.groups[0].timers[0], from: stale)
+        store.removeTimer(store.groups[0].timers[0], from: stale)
+        store.removeTimer(store.groups[0].timers[0], from: stale)
+        #expect(store.groups[0].timers.count == 1)
+
+        defaults.removePersistentDomain(forName: "TimerGroupUpdateTests")
+    }
+
     @Test func reorderingGroupTimersKeepsTheirState() {
         let defaults = UserDefaults(suiteName: "TimerGroupReorderStateTests")!
         defaults.removePersistentDomain(forName: "TimerGroupReorderStateTests")

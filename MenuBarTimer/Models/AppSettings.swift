@@ -79,22 +79,32 @@ final class AppSettings: ObservableObject {
         } else {
             groupTimerNameDisplay = .wholeLabel
         }
-        showGroupTimerProgress = userDefaults.object(forKey: Self.showProgressKey) as? Bool ?? true
-        useGroupTimerColors = userDefaults.object(forKey: Self.groupTimerColorsKey) as? Bool ?? false
-        useCompactColoredLabels = userDefaults.object(forKey: Self.compactColoredLabelsKey) as? Bool ?? false
-        showOnlyActiveGroupTimer = userDefaults.object(forKey: Self.showOnlyActiveGroupTimerKey) as? Bool ?? false
-        useTimerColorForButtons = userDefaults.object(forKey: Self.timerColorButtonsKey) as? Bool ?? true
-        showElapsedTimeForCountdowns = userDefaults.object(forKey: Self.showElapsedTimeKey) as? Bool ?? false
-        showTimerFinishNotification = userDefaults.object(forKey: Self.timerFinishNotificationKey) as? Bool ?? true
+        func bool(_ key: String, default defaultValue: Bool) -> Bool {
+            Self.bool(key, default: defaultValue, in: userDefaults)
+        }
+        showGroupTimerProgress = bool(Self.showProgressKey, default: true)
+        useGroupTimerColors = bool(Self.groupTimerColorsKey, default: false)
+        useCompactColoredLabels = bool(Self.compactColoredLabelsKey, default: false)
+        showOnlyActiveGroupTimer = bool(Self.showOnlyActiveGroupTimerKey, default: false)
+        useTimerColorForButtons = bool(Self.timerColorButtonsKey, default: true)
+        showElapsedTimeForCountdowns = bool(Self.showElapsedTimeKey, default: false)
+        showTimerFinishNotification = Self.timerFinishNotificationsEnabled(in: userDefaults)
         swipeToDismissPanel = Self.swipeToDismissEnabled(in: userDefaults)
     }
 
+    /// Read directly by `TimerModel`, which only has the `UserDefaults` it was created with.
     static func timerFinishNotificationsEnabled(in userDefaults: UserDefaults) -> Bool {
-        userDefaults.object(forKey: timerFinishNotificationKey) as? Bool ?? true
+        bool(timerFinishNotificationKey, default: true, in: userDefaults)
     }
 
     /// Read directly by `MainPanel`, which has no access to the `AppSettings` environment object.
     static func swipeToDismissEnabled(in userDefaults: UserDefaults) -> Bool {
-        userDefaults.object(forKey: swipeToDismissKey) as? Bool ?? true
+        bool(swipeToDismissKey, default: true, in: userDefaults)
+    }
+
+    /// A stored flag, or `defaultValue` while the user hasn't set it (`bool(forKey:)` can't tell an
+    /// unset flag from `false`).
+    private static func bool(_ key: String, default defaultValue: Bool, in userDefaults: UserDefaults) -> Bool {
+        userDefaults.object(forKey: key) as? Bool ?? defaultValue
     }
 }

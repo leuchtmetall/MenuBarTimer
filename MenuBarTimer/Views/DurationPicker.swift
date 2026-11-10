@@ -40,15 +40,6 @@ private enum DurationComponent {
     }
 }
 
-/// Virtual key codes (`NSEvent.keyCode`) handled by the duration field.
-private enum KeyCode {
-    static let tab: UInt16 = 48
-    static let leftArrow: UInt16 = 123
-    static let rightArrow: UInt16 = 124
-    static let downArrow: UInt16 = 125
-    static let upArrow: UInt16 = 126
-}
-
 /// Tab moves between the hours, minutes and seconds, and on to the next control after the seconds.
 private final class DurationTextView: NSView, TabKeyHandling {
     static let maximumDuration = (99 * 3600) + (59 * 60) + 59

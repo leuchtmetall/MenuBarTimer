@@ -410,9 +410,7 @@ private struct TimerGroupEditor: View {
         Binding(
             get: { currentGroup?.name ?? "" },
             set: { newName in
-                guard var updated = currentGroup else { return }
-                updated.name = newName
-                groupsStore.update(updated)
+                groupsStore.updateGroup(id: group.id) { $0.name = newName }
             }
         )
     }
@@ -428,10 +426,10 @@ private struct TimerGroupEditor: View {
                 return (currentTimer ?? timer)[keyPath: keyPath]
             },
             set: { newValue in
-                guard var updated = currentGroup,
-                      let index = updated.timers.firstIndex(where: { $0.id == timer.id }) else { return }
-                updated.timers[index][keyPath: keyPath] = newValue
-                groupsStore.update(updated)
+                groupsStore.updateGroup(id: group.id) { group in
+                    guard let index = group.timers.firstIndex(where: { $0.id == timer.id }) else { return }
+                    group.timers[index][keyPath: keyPath] = newValue
+                }
             }
         )
     }

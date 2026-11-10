@@ -129,9 +129,19 @@ final class TimerModel: ObservableObject {
         saveState()
     }
 
+    /// Brings the timer in line with a (possibly edited) definition of itself. A new type or
+    /// duration reloads it, which resets its progress; a new name or color leaves the progress alone.
+    func apply(_ definition: TimerPreset) {
+        if !hasLoadedTimer || preset.type != definition.type || preset.seconds != definition.seconds {
+            load(definition)
+        } else {
+            updateDisplayDetails(from: definition)
+        }
+    }
+
     /// Replaces the loaded preset's display fields (name, color) without touching the timer's
     /// progress or state. Changes to duration or type need `load(_:)` instead.
-    func updateDisplayDetails(from timerPreset: TimerPreset) {
+    private func updateDisplayDetails(from timerPreset: TimerPreset) {
         guard timerPreset.name != preset.name || timerPreset.colorName != preset.colorName else { return }
         preset.name = timerPreset.name
         preset.colorName = timerPreset.colorName

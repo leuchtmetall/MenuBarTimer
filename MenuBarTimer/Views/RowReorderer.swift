@@ -24,9 +24,6 @@ final class RowReorderer: ObservableObject {
     /// The distance between the tops of two consecutive rows: row height plus spacing.
     let rowStride: CGFloat
 
-    /// Virtual key code (`NSEvent.keyCode`) of the Escape key, which cancels a drag.
-    private static let escapeKeyCode: UInt16 = 53
-
     init(rowStride: CGFloat) {
         self.rowStride = rowStride
     }
@@ -94,7 +91,7 @@ final class RowReorderer: ObservableObject {
     private func monitorEscapeKey() {
         guard escapeMonitor == nil else { return }
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.keyCode == Self.escapeKeyCode else { return event }
+            guard event.keyCode == KeyCode.escape else { return event }
             DispatchQueue.main.async {
                 self?.cancel()
             }

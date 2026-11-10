@@ -105,37 +105,46 @@ final class TimerGroupsStore: ObservableObject {
         groups.insert(copy, at: index + 1)
     }
 
-    func update(_ group: TimerGroup) {
-        guard let index = groups.firstIndex(where: { $0.id == group.id }) else { return }
+    /// Edits the store's current copy of the group with `id`, which is what callers holding a
+    /// possibly stale `TimerGroup` value need. Returns whether anything changed; a group that no
+    /// longer exists, or an edit that leaves it as it was, publishes and saves nothing.
+    @discardableResult
+    func updateGroup(id: UUID, _ edit: (inout TimerGroup) -> Void) -> Bool {
+        guard let index = groups.firstIndex(where: { $0.id == id }) else { return false }
+        var group = groups[index]
+        edit(&group)
+        guard group != groups[index] else { return false }
         groups[index] = group
+        return true
     }
 
     func addTimer(to group: TimerGroup) {
-        guard var current = groups.first(where: { $0.id == group.id }) else { return }
-        let colors = TimerPreset.newTimerColorNames
-        current.timers.append(TimerPreset(
-            seconds: 5 * 60,
-            name: "Timer \(current.timers.count + 1)",
-            colorName: colors[current.timers.count % colors.count]
-        ))
-        update(current)
+        updateGroup(id: group.id) { group in
+            let colors = TimerPreset.newTimerColorNames
+            group.timers.append(TimerPreset(
+                seconds: 5 * 60,
+                name: "Timer \(group.timers.count + 1)",
+                colorName: colors[group.timers.count % colors.count]
+            ))
+        }
     }
 
     /// Moves a timer within its group so that it ends up at `targetIndex`.
     func moveTimer(_ timerID: UUID, in group: TimerGroup, toIndex targetIndex: Int) {
-        guard var current = groups.first(where: { $0.id == group.id }),
-              let sourceIndex = current.timers.firstIndex(where: { $0.id == timerID }),
-              current.timers.indices.contains(targetIndex),
-              sourceIndex != targetIndex else { return }
-        current.timers.insert(current.timers.remove(at: sourceIndex), at: targetIndex)
-        update(current)
+        updateGroup(id: group.id) { group in
+            guard let sourceIndex = group.timers.firstIndex(where: { $0.id == timerID }),
+                  group.timers.indices.contains(targetIndex) else { return }
+            group.timers.insert(group.timers.remove(at: sourceIndex), at: targetIndex)
+        }
     }
 
+    /// Removes a timer from its group, unless it is the group's last one.
     func removeTimer(_ timer: TimerPreset, from group: TimerGroup) {
-        guard var current = groups.first(where: { $0.id == group.id }), current.timers.count > 1 else { return }
-        current.timers.removeAll { $0.id == timer.id }
-        update(current)
-        removeSavedState(of: timer)
+        let wasRemoved = updateGroup(id: group.id) { group in
+            guard group.timers.count > 1 else { return }
+            group.timers.removeAll { $0.id == timer.id }
+        }
+        if wasRemoved { removeSavedState(of: timer) }
     }
 
     /// Deletes the progress `TimerGroupModel` persisted for a timer that no longer exists.
@@ -165,18 +174,13 @@ final class TimerGroupCoordinator: ObservableObject {
             modelCancellable = nil
             return
         }
-        let currentTimerIDs = model?.group.timers.map { $0.id }
-        let newTimerIDs = group.timers.map { $0.id }
-        // The same timers in a new order are an edit too: the model reorders its timers without resetting them.
-        if let model, model.group.id == group.id, let currentTimerIDs,
-           currentTimerIDs.count == newTimerIDs.count, Set(currentTimerIDs) == Set(newTimerIDs) {
-            model.updateDefinition(group)
-        } else {
-            let newModel = TimerGroupModel(group: group)
-            model = newModel
-            modelCancellable = newModel.objectWillChange.sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
+        // An edit of the loaded group is applied in place, so its timers keep running. Another group,
+        // or one whose timers were added or removed, gets a fresh model.
+        if let model, model.updateDefinition(group) { return }
+        let newModel = TimerGroupModel(group: group)
+        model = newModel
+        modelCancellable = newModel.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
         }
     }
 }
@@ -204,15 +208,8 @@ final class TimerGroupModel: ObservableObject {
         } else {
             self.activeTimerID = group.timers.first?.id
         }
-        for (index, definition) in group.timers.enumerated() {
-            let timer = timerModels[index]
-            // The group may have been edited while it wasn't loaded, leaving the saved state stale.
-            if !timer.hasLoadedTimer || timer.preset.type != definition.type || timer.preset.seconds != definition.seconds {
-                timer.load(definition)
-            } else {
-                timer.updateDisplayDetails(from: definition)
-            }
-        }
+        // The group may have been edited while it wasn't loaded, leaving the saved state stale.
+        for (definition, timer) in zip(group.timers, timerModels) { timer.apply(definition) }
         observeTimers()
     }
 
@@ -240,32 +237,26 @@ final class TimerGroupModel: ObservableObject {
 
     /// Applies an edited definition of the same group. The timers may have been reordered, but must be
     /// the same set; each keeps its running state unless its type or duration changed.
-    func updateDefinition(_ group: TimerGroup) {
-        let previousByID = Dictionary(uniqueKeysWithValues: zip(self.group.timers.map(\.id), zip(self.group.timers, timerModels)))
+    /// Returns `false`, changing nothing, for another group or another set of timers.
+    @discardableResult
+    func updateDefinition(_ group: TimerGroup) -> Bool {
+        let modelsByID = Dictionary(uniqueKeysWithValues: zip(self.group.timers.map(\.id), timerModels))
+        let reorderedModels = group.timers.compactMap { modelsByID[$0.id] }
         guard group.id == self.group.id, group.timers.count == timerModels.count,
-              group.timers.allSatisfy({ previousByID[$0.id] != nil }) else { return }
+              reorderedModels.count == timerModels.count else { return false }
 
-        var reorderedModels: [TimerModel] = []
-        for definition in group.timers {
-            guard let (previous, timer) = previousByID[definition.id] else { return }
-            if previous.type != definition.type || previous.seconds != definition.seconds {
-                timer.load(definition)
-            } else {
-                // Name/color edits must reach the timer model too: the menu bar label reads them from there.
-                timer.updateDisplayDetails(from: definition)
-            }
-            reorderedModels.append(timer)
-        }
-        // `TimerControlView` pairs `group.timers` and `timerModels` by index, so both must change together.
+        // Name and color edits must reach the timer models too: the views read them from there.
+        for (definition, timer) in zip(group.timers, reorderedModels) { timer.apply(definition) }
         if !reorderedModels.elementsEqual(timerModels, by: ===) { timerModels = reorderedModels }
         self.group = group
+        return true
     }
 
     func start(_ definition: TimerPreset) {
-        guard let index = group.timers.firstIndex(where: { $0.id == definition.id }) else { return }
-        for (otherIndex, timer) in timerModels.enumerated() where otherIndex != index { timer.pause() }
+        guard let timer = timerModels.first(where: { $0.preset.id == definition.id }) else { return }
+        for other in timerModels where other !== timer { other.pause() }
         activeTimerID = definition.id
-        timerModels[index].primaryButtonTapped()
+        timer.primaryButtonTapped()
     }
 
     /// `true` when every timer is idle, i.e. none has been started, paused or finished since its last reset.

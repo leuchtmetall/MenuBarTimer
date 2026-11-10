@@ -21,41 +21,10 @@ struct TimerControlView: View {
 
 private struct SingleTimerControlView: View {
     @ObservedObject var timerModel: TimerModel
-    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         VStack(spacing: 24) {
-            ZStack {
-                if timerModel.preset.type == .countdown {
-                    DonutProgressView(
-                        progress: timerModel.progress,
-                        lineWidth: 14,
-                        onProgressChange: { timerModel.setProgress($0) }
-                    )
-                    .frame(width: 180, height: 180)
-                }
-
-                VStack(spacing: 4) {
-                    Text(timerModel.timeString)
-                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                    if settings.showElapsedTimeForCountdowns, let elapsed = timerModel.elapsedTimeString {
-                        ElapsedTimeText(elapsed: elapsed, size: 15)
-                    }
-                    Text(timerModel.state.title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if timerModel.canUndoAdjustment {
-                        Button(action: { timerModel.undoAdjustment() }) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .accessibilityLabel("Undo timer adjustment")
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.small)
-                    }
-                }
-            }
+            TimerDial(timer: timerModel, style: .single, undoLabel: "Undo timer adjustment")
 
             HStack(spacing: 14) {
                 Button(action: { timerModel.primaryButtonTapped() }) {
@@ -94,12 +63,8 @@ private struct TimerGroupControlView: View {
             Spacer(minLength: 12)
 
             HStack(alignment: .top, spacing: 12) {
-                ForEach(Array(zip(groupModel.group.timers.indices, groupModel.group.timers)), id: \.1.id) { index, definition in
-                    GroupTimerControlPanel(
-                        definition: definition,
-                        timer: groupModel.timerModels[index],
-                        onStart: { groupModel.start(definition) }
-                    )
+                ForEach(groupModel.timerModels, id: \.preset.id) { timer in
+                    GroupTimerControlPanel(timer: timer, onStart: { groupModel.start(timer.preset) })
                 }
             }
 
@@ -143,68 +108,94 @@ private struct TimerGroupControlView: View {
 }
 
 private struct GroupTimerControlPanel: View {
-    let definition: TimerPreset
     @ObservedObject var timer: TimerModel
     let onStart: () -> Void
     @EnvironmentObject private var settings: AppSettings
 
+    private var name: String { timer.preset.name }
+
     var body: some View {
         VStack(spacing: 10) {
-            Text(definition.name)
+            Text(name)
                 .font(.headline)
-                .foregroundStyle(definition.color)
+                .foregroundStyle(timer.preset.color)
                 .lineLimit(1)
 
-            ZStack {
-                if timer.preset.type == .countdown {
-                    DonutProgressView(
-                        progress: timer.progress,
-                        lineWidth: 12,
-                        onProgressChange: { timer.setProgress($0) }
-                    )
-                    .frame(width: 150, height: 150)
-                }
-
-                VStack(spacing: 3) {
-                    Text(timer.timeString)
-                        .font(.system(size: 25, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                    if settings.showElapsedTimeForCountdowns, let elapsed = timer.elapsedTimeString {
-                        ElapsedTimeText(elapsed: elapsed, size: 13)
-                    }
-                    Text(timer.state.title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if timer.canUndoAdjustment {
-                        Button(action: { timer.undoAdjustment() }) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .accessibilityLabel("Undo \(definition.name) adjustment")
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.small)
-                    }
-                }
-            }
+            TimerDial(timer: timer, style: .group, undoLabel: "Undo \(name) adjustment")
 
             HStack(spacing: 6) {
                 Button(action: onStart) {
                     Image(systemName: timer.state == .running ? "pause.fill" : "play.fill")
-                        .accessibilityLabel(timer.state == .running ? "Pause \(definition.name)" : "Start \(definition.name)")
+                        .accessibilityLabel(timer.state == .running ? "Pause \(name)" : "Start \(name)")
                 }
                 .buttonStyle(.glassProminent)
-                .tint(settings.useTimerColorForButtons ? definition.color : nil)
+                .tint(settings.useTimerColorForButtons ? timer.preset.color : nil)
                 .disabled(!timer.hasLoadedTimer)
 
                 Button(action: { timer.stop() }) {
                     Image(systemName: "stop.fill")
-                        .accessibilityLabel("Stop \(definition.name)")
+                        .accessibilityLabel("Stop \(name)")
                 }
                 .buttonStyle(.glass)
                 .disabled(!timer.hasLoadedTimer)
             }
         }
         .frame(width: 190)
+    }
+}
+
+/// A timer's progress ring (countdowns only) around its time, state and undo button. Shared by the
+/// single timer and by every timer of a group, which differ only in size.
+private struct TimerDial: View {
+    struct Style {
+        let diameter: CGFloat
+        let lineWidth: CGFloat
+        let timeFontSize: CGFloat
+        let elapsedFontSize: CGFloat
+        let spacing: CGFloat
+
+        static let single = Style(diameter: 180, lineWidth: 14, timeFontSize: 32, elapsedFontSize: 15, spacing: 4)
+        static let group = Style(diameter: 150, lineWidth: 12, timeFontSize: 25, elapsedFontSize: 13, spacing: 3)
+    }
+
+    @ObservedObject var timer: TimerModel
+    let style: Style
+    /// Accessibility label of the undo button, which names the timer in a group.
+    let undoLabel: String
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        ZStack {
+            if timer.preset.type == .countdown {
+                DonutProgressView(
+                    progress: timer.progress,
+                    lineWidth: style.lineWidth,
+                    onProgressChange: { timer.setProgress($0) }
+                )
+                .frame(width: style.diameter, height: style.diameter)
+            }
+
+            VStack(spacing: style.spacing) {
+                Text(timer.timeString)
+                    .font(.system(size: style.timeFontSize, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                if settings.showElapsedTimeForCountdowns, let elapsed = timer.elapsedTimeString {
+                    ElapsedTimeText(elapsed: elapsed, size: style.elapsedFontSize)
+                }
+                Text(timer.state.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if timer.canUndoAdjustment {
+                    Button(action: { timer.undoAdjustment() }) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .accessibilityLabel(undoLabel)
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                }
+            }
+        }
     }
 }
 

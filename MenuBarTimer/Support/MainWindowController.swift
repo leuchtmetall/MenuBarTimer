@@ -241,7 +241,7 @@ final class MainPanel: NSPanel {
     override func sendEvent(_ event: NSEvent) {
         if handleSwipe(event) { return }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option])
-        if event.type == .keyDown, event.keyCode == Self.tabKeyCode, modifiers.isEmpty,
+        if event.type == .keyDown, event.keyCode == KeyCode.tab, modifiers.isEmpty,
            !(firstResponder is TabKeyHandling) {
             moveFocus(from: firstResponder as? NSView, forward: !event.modifierFlags.contains(.shift))
             return
@@ -252,9 +252,6 @@ final class MainPanel: NSPanel {
     /// The presets column's current width, which changes in expanded edit mode. Written by
     /// `PresetsListView` whenever its width changes; read only when computing the tab order.
     static var presetsColumnWidth: CGFloat = PresetsListView.width
-
-    /// Virtual key code (`NSEvent.keyCode`) of the Tab key.
-    private static let tabKeyCode: UInt16 = 48
 
     override func selectNextKeyView(_ sender: Any?) {
         moveFocus(from: firstResponder as? NSView, forward: true)
