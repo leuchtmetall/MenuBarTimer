@@ -363,6 +363,40 @@ struct MenuBarTimerTests {
         #expect(MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10], gap: 4).isEmpty)
     }
 
+    @Test func groupLabelWidthsAreMeasuredOncePerKey() {
+        let layout = MenuBarLabelLayout()
+        var measurements = 0
+        let measure: () -> CGFloat = { measurements += 1; return 42 }
+
+        #expect(layout.width(for: "Work 00:00", measure: measure) == 42)
+        #expect(layout.width(for: "Work 00:00", measure: measure) == 42)
+        #expect(measurements == 1)
+
+        #expect(layout.width(for: "Work 0:00:00", measure: measure) == 42)
+        #expect(measurements == 2)
+
+        // A failed measurement is retried rather than remembered.
+        #expect(layout.width(for: "Break 00:00") { 0 } == 0)
+        #expect(layout.width(for: "Break 00:00") { 30 } == 30)
+    }
+
+    @MainActor @Test func progressRingImagesAreSharedPerStep() {
+        let steps = Double(ProgressRingImage.steps)
+        let ring = ProgressRingImage.image(progress: 30 / steps, size: 18)
+        #expect(ring.size == NSSize(width: 18, height: 18))
+        #expect(ring.isTemplate)
+
+        // Progress within the same step reuses the image; the next step gets its own.
+        #expect(ProgressRingImage.image(progress: 30.5 / steps, size: 18) === ring)
+        #expect(ProgressRingImage.image(progress: 31 / steps, size: 18) !== ring)
+        #expect(ProgressRingImage.image(progress: 30 / steps, size: 14) !== ring)
+
+        // Rounded down: the ring is only full when the timer is.
+        #expect(ProgressRingImage.step(for: 0.9999) == ProgressRingImage.steps - 1)
+        #expect(ProgressRingImage.step(for: 1) == ProgressRingImage.steps)
+        #expect(ProgressRingImage.step(for: -1) == 0)
+    }
+
     @MainActor @Test func pausingACountdownKeepsTheTimeElapsedSinceTheLastTick() async throws {
         let defaults = UserDefaults(suiteName: "CountdownPauseTests")!
         defaults.removePersistentDomain(forName: "CountdownPauseTests")

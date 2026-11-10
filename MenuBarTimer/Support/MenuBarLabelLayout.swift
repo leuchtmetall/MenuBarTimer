@@ -52,6 +52,27 @@ final class MenuBarLabelLayout {
         contentWidth = 0
     }
 
+    // MARK: Measured widths
+
+    private var measuredWidths: [AnyHashable: CGFloat] = [:]
+    /// Names and settings rarely change, so a handful of entries is normal; this only stops the
+    /// cache from growing forever while timers are being renamed.
+    private static let measuredWidthsLimit = 64
+
+    /// The width `measure` returns for `key`, measured only the first time that key is seen.
+    ///
+    /// Measuring a segment means laying its view out, which is too costly to repeat for every timer
+    /// on every label update. `key` must cover everything the width depends on.
+    func width(for key: some Hashable, measure: () -> CGFloat) -> CGFloat {
+        if let cached = measuredWidths[key] { return cached }
+        let width = measure()
+        // A failed measurement isn't cached, so the next label update tries again.
+        guard width > 0 else { return width }
+        if measuredWidths.count >= Self.measuredWidthsLimit { measuredWidths.removeAll() }
+        measuredWidths[key] = width
+        return width
+    }
+
     /// Turns per-timer content widths into gap-free segments.
     ///
     /// The space between two timers is split evenly between them, so every point of the label

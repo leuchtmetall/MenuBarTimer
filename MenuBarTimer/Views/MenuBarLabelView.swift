@@ -66,7 +66,7 @@ struct MenuBarLabelView: View {
     private func timerImage(for timerModel: TimerModel) -> some View {
         let image = timerModel.preset.isStopwatch
             ? Image(systemName: "stopwatch")
-            : Image(nsImage: ringImage(progress: timerModel.progress, size: iconSize))
+            : Image(nsImage: ProgressRingImage.image(progress: timerModel.progress, size: iconSize))
         return image.frame(width: iconSize, height: iconSize)
     }
 
@@ -135,38 +135,25 @@ struct MenuBarLabelView: View {
                 isActive: timerModel.state == .running,
                 showProgress: settings.showGroupTimerProgress,
                 isCompact: isCompact,
-                ringImage: { ringImage(progress: $0, size: ringSize) }
+                ringSize: ringSize
             )
         }
 
         let renderer = ImageRenderer(content: ColoredGroupMenuBarLabel(items: items))
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        renderer.scale = NSScreen.highestBackingScaleFactor
         let image = renderer.nsImage ?? NSImage(size: .zero)
         image.isTemplate = false
 
         layout.update(
             segments: MenuBarLabelLayout.distribute(
                 ids: timerModels.map { $0.preset.id },
-                widths: items.map { viewWidth(of: $0) },
+                widths: items.map { item in layout.width(for: item.widthKey) { viewWidth(of: item) } },
                 gap: ColoredGroupMenuBarLabel.spacing,
                 leadingInset: ColoredGroupMenuBarLabel.leadingPadding
             ),
             contentWidth: image.size.width
         )
 
-        return image
-    }
-
-    private func ringImage(progress: Double, size: CGFloat) -> NSImage {
-        let renderer = ImageRenderer(content:
-            PieProgressView(progress: progress)
-                .padding(1)
-                .frame(width: size, height: size)
-        )
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        renderer.proposedSize = ProposedViewSize(width: size, height: size)
-        let image = renderer.nsImage ?? NSImage(size: NSSize(width: size, height: size))
-        image.isTemplate = true
         return image
     }
 
@@ -216,7 +203,30 @@ private struct GroupTimerLabelItem: View {
     let isActive: Bool
     let showProgress: Bool
     let isCompact: Bool
-    let ringImage: (Double) -> NSImage
+    let ringSize: CGFloat
+
+    /// Everything the item's width depends on, so `MenuBarLabelLayout` can reuse a measured width.
+    /// Color, progress and `isActive` don't affect it, and neither do the digits of the time, which
+    /// are monospaced: only its shape (`00:00`, `0:00:00`) matters.
+    struct WidthKey: Hashable {
+        let name: String
+        let timeShape: String
+        let isStopwatch: Bool
+        let showProgress: Bool
+        let isCompact: Bool
+        let ringSize: CGFloat
+    }
+
+    var widthKey: WidthKey {
+        WidthKey(
+            name: name,
+            timeShape: String(timeString.map { $0.isNumber ? "0" : $0 }),
+            isStopwatch: isStopwatch,
+            showProgress: showProgress,
+            isCompact: isCompact,
+            ringSize: ringSize
+        )
+    }
 
     private static let font = NSFont.menuBarFont(ofSize: 0)
     /// Seconds are shrunk in compact mode once hours are visible, to save menu bar space.
@@ -229,7 +239,7 @@ private struct GroupTimerLabelItem: View {
                 if isStopwatch {
                     Image(systemName: "stopwatch")
                 } else {
-                    Image(nsImage: ringImage(progress))
+                    Image(nsImage: ProgressRingImage.image(progress: progress, size: ringSize))
                 }
             }
             timeText
@@ -270,21 +280,10 @@ private struct GroupTimerLabelItem: View {
 }
 
 #Preview("Colored group label: regular vs compact") {
-    let ring: (CGFloat) -> (Double) -> NSImage = { size in
-        { progress in
-            let renderer = ImageRenderer(content:
-                PieProgressView(progress: progress).padding(1).frame(width: size, height: size)
-            )
-            renderer.scale = 2
-            let image = renderer.nsImage ?? NSImage(size: NSSize(width: size, height: size))
-            image.isTemplate = true
-            return image
-        }
-    }
     let item: (Bool, String) -> GroupTimerLabelItem = { isCompact, time in
         GroupTimerLabelItem(
             name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3, isActive: false,
-            showProgress: true, isCompact: isCompact, ringImage: ring(isCompact ? 14 : 18)
+            showProgress: true, isCompact: isCompact, ringSize: isCompact ? 14 : 18
         )
     }
     VStack(alignment: .leading, spacing: 8) {
