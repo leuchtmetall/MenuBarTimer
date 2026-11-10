@@ -602,6 +602,40 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "SelectedTimerKindTests")
     }
 
+    @MainActor @Test func groupSelectionIsRestoredFromSavedModeAndGroups() {
+        let groups = [TimerGroup.example, TimerGroup.example]
+        let restore = TimerGroupsStore.restoredSelection
+
+        // Preset mode never selects a group, even if one was selected before.
+        var restored = restore(.preset, groups[1].id, groups)
+        #expect(restored.groupID == nil)
+        #expect(restored.kind == .preset)
+
+        // Group mode restores the saved group, or none if it no longer exists.
+        restored = restore(.group, groups[1].id, groups)
+        #expect(restored.groupID == groups[1].id)
+        #expect(restored.kind == .group)
+        restored = restore(.group, UUID(), groups)
+        #expect(restored.groupID == nil)
+        #expect(restored.kind == .group)
+
+        // Group mode without groups falls back to no recorded mode.
+        restored = restore(.group, groups[1].id, [])
+        #expect(restored.groupID == nil)
+        #expect(restored.kind == nil)
+
+        // Without a recorded mode, existing groups mean group mode: the saved one, else the first.
+        restored = restore(nil, groups[1].id, groups)
+        #expect(restored.groupID == groups[1].id)
+        #expect(restored.kind == .group)
+        restored = restore(nil, nil, groups)
+        #expect(restored.groupID == groups[0].id)
+        #expect(restored.kind == .group)
+        restored = restore(nil, nil, [])
+        #expect(restored.groupID == nil)
+        #expect(restored.kind == nil)
+    }
+
     private func makeLayout(ids: [UUID], widths: [CGFloat], contentWidth: CGFloat) -> MenuBarLabelLayout {
         let layout = MenuBarLabelLayout()
         layout.update(

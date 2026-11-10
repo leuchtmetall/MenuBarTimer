@@ -1,5 +1,5 @@
 //
-//  RightClickHandlingView.swift
+//  RightClickHandlerView.swift
 //  MenuBarTimer
 //
 

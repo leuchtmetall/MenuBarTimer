@@ -45,23 +45,34 @@ final class TimerGroupsStore: ObservableObject {
         } else {
             groups = []
         }
-        let selectedKind = SelectedTimerKind.load(from: userDefaults)
-        if selectedKind == .preset {
-            selectedGroupID = nil
-        } else if selectedKind == .group, groups.isEmpty {
-            selectedGroupID = nil
-            SelectedTimerKind.clear(in: userDefaults)
-        } else if let value = userDefaults.string(forKey: Self.selectionKey),
-           let id = UUID(uuidString: value), groups.contains(where: { $0.id == id }) {
-            selectedGroupID = id
-            if selectedKind == nil { SelectedTimerKind.group.save(to: userDefaults) }
-        } else if selectedKind == nil, let firstGroup = groups.first {
-            selectedGroupID = firstGroup.id
-            SelectedTimerKind.group.save(to: userDefaults)
-        } else {
-            selectedGroupID = nil
+        let savedKind = SelectedTimerKind.load(from: userDefaults)
+        let restored = Self.restoredSelection(
+            kind: savedKind,
+            savedID: userDefaults.string(forKey: Self.selectionKey).flatMap(UUID.init(uuidString:)),
+            groups: groups
+        )
+        selectedGroupID = restored.groupID
+        if restored.kind != savedKind {
+            if let kind = restored.kind { kind.save(to: userDefaults) } else { SelectedTimerKind.clear(in: userDefaults) }
         }
         save()
+    }
+
+    /// Decides which group is selected at launch, and which mode (`kind`) should be on record
+    /// afterwards, from what was saved: the mode, the last selected group and the groups themselves.
+    static func restoredSelection(
+        kind: SelectedTimerKind?,
+        savedID: UUID?,
+        groups: [TimerGroup]
+    ) -> (groupID: UUID?, kind: SelectedTimerKind?) {
+        // In preset mode no group is selected, whatever was selected before.
+        if kind == .preset { return (nil, .preset) }
+        // Group mode without any groups left: back to no recorded mode.
+        if kind == .group, groups.isEmpty { return (nil, nil) }
+        if let savedID, groups.contains(where: { $0.id == savedID }) { return (savedID, .group) }
+        // No mode on record (saved by a version that didn't record it): having groups means group mode.
+        if kind == nil, let firstGroup = groups.first { return (firstGroup.id, .group) }
+        return (nil, kind)
     }
 
     var selectedGroup: TimerGroup? { groups.first { $0.id == selectedGroupID } }

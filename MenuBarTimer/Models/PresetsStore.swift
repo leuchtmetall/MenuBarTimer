@@ -8,7 +8,7 @@ import Foundation
 
 /// Which of the two mutually exclusive modes is active: a standalone preset or a timer group.
 /// Shared by `PresetsStore` and `TimerGroupsStore`, which each own one side of the selection.
-enum SelectedTimerKind: String {
+nonisolated enum SelectedTimerKind: String {
     case preset
     case group
 
