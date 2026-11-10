@@ -15,6 +15,7 @@ struct MenuBarTimerApp: App {
     @StateObject private var presetsStore = PresetsStore()
     @StateObject private var groupCoordinator = TimerGroupCoordinator()
     @StateObject private var settings = AppSettings()
+    @StateObject private var menuBarAppearance = MenuBarAppearance()
     @State private var isMenuPresented = false
     /// Written by `MenuBarLabelView` while it composes the label, read by the right-click handler.
     private let labelLayout = MenuBarLabelLayout()
@@ -29,7 +30,7 @@ struct MenuBarTimerApp: App {
         MenuBarExtra {
             EmptyView()
         } label: {
-            MenuBarLabelView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator, settings: settings, layout: labelLayout)
+            MenuBarLabelView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator, settings: settings, menuBarAppearance: menuBarAppearance, layout: labelLayout)
                 .id(groupsStore.selectedGroupID?.uuidString ?? presetsStore.selectedPresetID?.uuidString ?? "timer")
         }
         .menuBarExtraAccess(isPresented: $isMenuPresented) { statusItem in
@@ -47,6 +48,12 @@ struct MenuBarTimerApp: App {
             if handler.superview == nil { button.addSubview(handler) }
             handler.frame = button.bounds
             handler.autoresizingMask = [.width, .height]
+            handler.onAppearanceChange = { menuBarAppearance.update(from: $0) }
+            // Deferred: this closure can run while SwiftUI is updating the label.
+            DispatchQueue.main.async { [weak handler] in
+                guard let handler else { return }
+                menuBarAppearance.update(from: handler.effectiveAppearance)
+            }
             handler.onLeftMouseDown = { mainWindow.toggle() }
             handler.onRightMouseDown = { [weak handler] point in
                 guard let handler else { return }

@@ -33,7 +33,7 @@ final class AppSettings: ObservableObject {
     @Published var useGroupTimerColors: Bool {
         didSet { userDefaults.set(useGroupTimerColors, forKey: Self.groupTimerColorsKey) }
     }
-    /// Colored group labels only: a smaller progress ring, and smaller seconds once hours are shown.
+    /// Group labels: a smaller progress ring, and smaller seconds once hours are shown.
     @Published var useCompactColoredLabels: Bool {
         didSet { userDefaults.set(useCompactColoredLabels, forKey: Self.compactColoredLabelsKey) }
     }

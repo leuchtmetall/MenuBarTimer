@@ -26,6 +26,14 @@ final class RightClickHandlerView: NSView {
     /// coordinate space, which is what `MenuBarLabelLayout` hit-tests against.
     var onRightMouseDown: ((CGPoint) -> Void)?
 
+    /// Called when the status item button's appearance changes, e.g. the menu bar turns dark.
+    var onAppearanceChange: ((NSAppearance) -> Void)?
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        onAppearanceChange?(effectiveAppearance)
+    }
+
     override func mouseDown(with event: NSEvent) {
         if let onLeftMouseDown {
             onLeftMouseDown()

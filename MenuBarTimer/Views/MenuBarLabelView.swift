@@ -20,10 +20,11 @@ struct MenuBarLabelView: View {
     @ObservedObject var groupsStore: TimerGroupsStore
     @ObservedObject var groupCoordinator: TimerGroupCoordinator
     @ObservedObject var settings: AppSettings
+    @ObservedObject var menuBarAppearance: MenuBarAppearance
     let layout: MenuBarLabelLayout
 
     private let iconSize: CGFloat = 18
-    /// Progress ring size in the compact colored group label.
+    /// Progress ring size in the compact rasterized group label.
     private let compactIconSize: CGFloat = 14
     /// Separates two timers in the plain-text group label.
     private static let groupLabelSeparator = "   "
@@ -31,8 +32,10 @@ struct MenuBarLabelView: View {
     var body: some View {
         Group {
             if let groupModel = groupCoordinator.model {
-                if settings.useGroupTimerColors {
-                    Image(nsImage: coloredGroupLabelImage(for: groupModel))
+                // Colors, progress rings and the compact layout all need the rasterized label; plain
+                // `Text` can do none of them.
+                if settings.useGroupTimerColors || settings.showGroupTimerProgress || settings.useCompactColoredLabels {
+                    Image(nsImage: groupLabelImage(for: groupModel, useColors: settings.useGroupTimerColors))
                 } else {
                     groupLabel(for: groupModel)
                 }
@@ -113,7 +116,12 @@ struct MenuBarLabelView: View {
         return Text(text)
     }
 
-    private func coloredGroupLabelImage(for groupModel: TimerGroupModel) -> NSImage {
+    /// The rasterized group label. Timers without a color (all of them when colors are off) are
+    /// drawn in the menu bar's own text color, taken from `menuBarAppearance` because `ImageRenderer`
+    /// cannot see it. The image is deliberately not a template: that would tint emoji in timer
+    /// names as well.
+    private func groupLabelImage(for groupModel: TimerGroupModel, useColors: Bool) -> NSImage {
+        let defaultColor: Color = menuBarAppearance.isDark ? .white : .black
         let isCompact = settings.useCompactColoredLabels
         let ringSize = isCompact ? compactIconSize : iconSize
         let timerModels = displayedTimerModels(for: groupModel)
@@ -121,7 +129,7 @@ struct MenuBarLabelView: View {
             GroupTimerLabelItem(
                 name: displayName(for: timerModel),
                 timeString: timerModel.timeString,
-                color: timerModel.preset.color,
+                color: (useColors ? TimerColor.color(named: timerModel.preset.colorName) : nil) ?? defaultColor,
                 isStopwatch: timerModel.preset.isStopwatch,
                 progress: timerModel.progress,
                 isActive: timerModel.state == .running,
@@ -196,7 +204,7 @@ private struct ColoredGroupMenuBarLabel: View {
     }
 }
 
-/// One timer inside the colored group label. Rendered as part of the label and, separately,
+/// One timer inside the rasterized group label. Rendered as part of the label and, separately,
 /// laid out on its own to measure the width of that timer's segment.
 private struct GroupTimerLabelItem: View {
     let name: String

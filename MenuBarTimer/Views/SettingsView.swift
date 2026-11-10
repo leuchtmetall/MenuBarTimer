@@ -21,15 +21,10 @@ struct SettingsView: View {
                     }
                     // The same setting as the "Compact" button in the timer window.
                     Toggle("Show only the active timer", isOn: $settings.showOnlyActiveGroupTimer)
+                    Toggle("Show progress circles", isOn: $settings.showGroupTimerProgress)
                     Toggle("Use timer colors", isOn: $settings.useGroupTimerColors)
-                    // These two only apply to the colored label, so they follow it, indented.
-                    Group {
-                        Toggle("Show progress circles", isOn: $settings.showGroupTimerProgress)
-                        Toggle("Smaller circles and seconds", isOn: $settings.useCompactColoredLabels)
-                            .help("Smaller progress circles, and smaller seconds when hours are shown")
-                    }
-                    .padding(.leading, 16)
-                    .disabled(!settings.useGroupTimerColors)
+                    Toggle("Smaller circles and seconds", isOn: $settings.useCompactColoredLabels)
+                        .help("Smaller progress circles, and smaller seconds when hours are shown")
                 }
 
                 Section("Timer window") {
