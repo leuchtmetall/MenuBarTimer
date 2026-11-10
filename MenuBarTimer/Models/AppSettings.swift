@@ -15,9 +15,9 @@ enum GroupTimerNameDisplay: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .wholeLabel: return "Whole label"
-        case .firstCharacter: return "First character"
-        case .none: return "None"
+        case .wholeLabel: return "Full name"
+        case .firstCharacter: return "First letter"
+        case .none: return "Hidden"
         }
     }
 }

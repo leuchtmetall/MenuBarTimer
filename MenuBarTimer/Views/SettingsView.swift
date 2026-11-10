@@ -11,41 +11,54 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Settings")
-                .font(.title2.weight(.semibold))
-            
-            VStack(alignment: .leading, spacing: 10) {
-                Picker("Group timer names in menu bar", selection: $settings.groupTimerNameDisplay) {
-                    ForEach(GroupTimerNameDisplay.allCases) { display in
-                        Text(display.title).tag(display)
-                    }
-                }
-                Toggle("Show progress circle for group timers", isOn: $settings.showGroupTimerProgress)
-                    .disabled(!settings.useGroupTimerColors)
-                Toggle("Use timer colors in the menu bar", isOn: $settings.useGroupTimerColors)
-                Toggle("Compact colored timers", isOn: $settings.useCompactColoredLabels)
-                    .disabled(!settings.useGroupTimerColors)
-                    .help("Smaller progress circles, and smaller seconds when hours are shown")
-                Toggle("Use timer colors for start buttons", isOn: $settings.useTimerColorForButtons)
-                Toggle("Show elapsed time below countdown timers", isOn: $settings.showElapsedTimeForCountdowns)
-                Toggle("Show a notification when a timer finishes", isOn: $settings.showTimerFinishNotification)
-                    .onChange(of: settings.showTimerFinishNotification) { _, isEnabled in
-                        if isEnabled {
-                            TimerCompletionNotifier.requestAuthorization()
+        VStack(spacing: 0) {
+            Form {
+                Section("Timer groups in the menu bar") {
+                    Picker("Timer names", selection: $settings.groupTimerNameDisplay) {
+                        ForEach(GroupTimerNameDisplay.allCases) { display in
+                            Text(display.title).tag(display)
                         }
                     }
-                Toggle("Swipe right with two fingers to close the window", isOn: $settings.swipeToDismissPanel)
+                    // The same setting as the "Compact" button in the timer window.
+                    Toggle("Show only the active timer", isOn: $settings.showOnlyActiveGroupTimer)
+                    Toggle("Use timer colors", isOn: $settings.useGroupTimerColors)
+                    // These two only apply to the colored label, so they follow it, indented.
+                    Group {
+                        Toggle("Show progress circles", isOn: $settings.showGroupTimerProgress)
+                        Toggle("Smaller circles and seconds", isOn: $settings.useCompactColoredLabels)
+                            .help("Smaller progress circles, and smaller seconds when hours are shown")
+                    }
+                    .padding(.leading, 16)
+                    .disabled(!settings.useGroupTimerColors)
+                }
+
+                Section("Timer window") {
+                    Toggle("Use timer colors for start buttons of group timers", isOn: $settings.useTimerColorForButtons)
+                    Toggle("Show elapsed time below countdown timers", isOn: $settings.showElapsedTimeForCountdowns)
+                    Toggle("Swipe right with two fingers to close", isOn: $settings.swipeToDismissPanel)
+                }
+
+                Section("Notifications") {
+                    Toggle("Notify when a timer finishes", isOn: $settings.showTimerFinishNotification)
+                        .onChange(of: settings.showTimerFinishNotification) { _, isEnabled in
+                            if isEnabled {
+                                TimerCompletionNotifier.requestAuthorization()
+                            }
+                        }
+                }
             }
+            .formStyle(.grouped)
+            .scrollDisabled(true)
 
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.defaultAction)
             }
+            .padding([.horizontal, .bottom], 20)
         }
-        .padding(24)
-        .frame(width: 370)
+        .frame(width: 440)
+        .fixedSize(horizontal: false, vertical: true)
         .background(SettingsWindowConfigurator())
     }
 }
