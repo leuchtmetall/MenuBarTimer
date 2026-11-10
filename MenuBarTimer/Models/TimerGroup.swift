@@ -6,7 +6,7 @@
 import Combine
 import Foundation
 
-struct TimerGroup: Identifiable, Codable, Equatable {
+nonisolated struct TimerGroup: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
     var timers: [TimerPreset]
@@ -41,7 +41,7 @@ final class TimerGroupsStore: ObservableObject {
         self.userDefaults = userDefaults
         if let data = userDefaults.data(forKey: Self.groupsKey),
            let decoded = try? JSONDecoder().decode([TimerGroup].self, from: data) {
-            groups = decoded.filter { $0.name != "Stopwatch" }
+            groups = decoded
         } else {
             groups = []
         }

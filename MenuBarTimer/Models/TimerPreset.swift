@@ -7,13 +7,13 @@ import Foundation
 import SwiftUI
 
 /// The kind of timer a preset starts.
-enum TimerType: String, Codable, Equatable {
+nonisolated enum TimerType: String, Codable, Equatable {
     case countdown
     case countUp
 }
 
 /// A user-configurable, quick-start timer preset.
-struct TimerPreset: Identifiable, Codable, Equatable {
+nonisolated struct TimerPreset: Identifiable, Codable, Equatable {
     let id: UUID
     var seconds: TimeInterval
     var type: TimerType

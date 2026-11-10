@@ -602,6 +602,18 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "SelectedTimerKindTests")
     }
 
+    @Test func groupNamedStopwatchSurvivesRelaunch() {
+        let defaults = UserDefaults(suiteName: "TimerGroupStopwatchNameTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupStopwatchNameTests")
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.addGroup()
+        store.updateGroup(id: store.groups[0].id) { $0.name = "Stopwatch" }
+
+        #expect(TimerGroupsStore(userDefaults: defaults).groups.map(\.name) == ["Stopwatch"])
+
+        defaults.removePersistentDomain(forName: "TimerGroupStopwatchNameTests")
+    }
+
     @MainActor @Test func groupSelectionIsRestoredFromSavedModeAndGroups() {
         let groups = [TimerGroup.example, TimerGroup.example]
         let restore = TimerGroupsStore.restoredSelection

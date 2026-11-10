@@ -18,7 +18,7 @@ import Foundation
 /// Nothing observes it — the right-click handler only ever reads it, outside of any view update.
 final class MenuBarLabelLayout {
     /// One timer's horizontal slice of the label, in points, left to right.
-    struct Segment: Equatable {
+    nonisolated struct Segment: Equatable {
         /// The `TimerPreset.id` of the group timer, i.e. the id used by `TimerGroup.timers`.
         let timerID: UUID
         let width: CGFloat
@@ -97,7 +97,7 @@ final class MenuBarLabelLayout {
 
     /// The result of hit-testing the label: the timer under the cursor and where that timer's part
     /// of the label is drawn, in the coordinate space of the status item button.
-    struct Hit: Equatable {
+    nonisolated struct Hit: Equatable {
         let timerID: UUID
         let minX: CGFloat
         let width: CGFloat

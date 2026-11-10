@@ -214,7 +214,7 @@ struct PresetsListView: View {
                 ReorderHandle(help: "Drag to rearrange preset")
                     .gesture(reorderer.gesture(for: preset.id, in: ids, onMove: movePreset))
                 DurationPicker(duration: durationBinding(for: preset))
-                RemoveButton { presetsStore.removePreset(preset) }
+                RemoveButton { remove(preset) }
             }
         }
         // The stopwatch isn't in `ids`, so it never moves.
@@ -314,6 +314,16 @@ struct PresetsListView: View {
         groupsStore.addGroup()
         presetsStore.clearSelection()
         groupCoordinator.load(groupsStore.selectedGroup)
+    }
+
+    private func remove(_ preset: TimerPreset) {
+        let wasSelected = presetsStore.selectedPresetID == preset.id
+        presetsStore.removePreset(preset)
+        // The store moved the selection to another preset; the timer must follow it instead of
+        // carrying on with the preset that no longer exists.
+        if wasSelected, let selected = presetsStore.selectedPreset {
+            timerModel.load(selected)
+        }
     }
 
     // MARK: Reordering

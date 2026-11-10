@@ -11,7 +11,7 @@ import SwiftUI
 /// - a custom color picked in the system color panel, `"#RRGGBB"` in sRGB.
 ///
 /// Plain hue names are what earlier versions stored, so existing groups keep their colors.
-enum TimerColor {
+nonisolated enum TimerColor {
     /// The palette's hues, in the order the color picker shows them.
     static let hues: [(name: String, color: Color)] = [
         ("red", .red), ("orange", .orange), ("yellow", .yellow), ("green", .green),
