@@ -8,7 +8,7 @@ import Combine
 import Foundation
 
 /// Drives a single countdown or count-up timer.
-final class TimerModel: Identifiable, ObservableObject {
+final class TimerModel: ObservableObject {
     enum State: String, Codable {
         case idle
         case running
@@ -25,10 +25,10 @@ final class TimerModel: Identifiable, ObservableObject {
         }
     }
 
-    let id: UUID
-    @Published private(set) var preset: TimerPreset = TimerPreset(seconds: 5*60)
+    /// The loaded timer. Until `load(_:)` or a restored state replaces it, this is an empty
+    /// placeholder (see `hasLoadedTimer`).
+    @Published private(set) var preset: TimerPreset = TimerPreset(seconds: 0)
     @Published private(set) var state: State = .idle
-    @Published private(set) var totalDuration: TimeInterval = 0 // TODO get from preset
     @Published private(set) var remaining: TimeInterval = 0
     @Published private(set) var canUndoAdjustment = false
 
@@ -37,7 +37,6 @@ final class TimerModel: Identifiable, ObservableObject {
 
     private struct SavedState: Codable {
         let preset: TimerPreset
-        let totalDuration: TimeInterval
         let remaining: TimeInterval
         let state: State
     }
@@ -60,12 +59,10 @@ final class TimerModel: Identifiable, ObservableObject {
     }
 
     init(
-        id: UUID = UUID(),
         userDefaults: UserDefaults = .standard,
         savedStateKey: String = TimerModel.defaultSavedStateKey,
         onFinish: ((TimerPreset) -> Void)? = nil
     ) {
-        self.id = id
         self.userDefaults = userDefaults
         self.savedStateKey = savedStateKey
         self.onFinish = onFinish ?? { TimerCompletionNotifier.send(for: $0) }
@@ -89,6 +86,11 @@ final class TimerModel: Identifiable, ObservableObject {
     /// For count-up timers (the stopwatch), `remaining` holds the elapsed time.
     private var isCountUp: Bool {
         preset.type == .countUp
+    }
+
+    /// The full length of a countdown. `0` for count-up timers.
+    var totalDuration: TimeInterval {
+        preset.seconds
     }
 
     var hasLoadedTimer: Bool {
@@ -122,7 +124,6 @@ final class TimerModel: Identifiable, ObservableObject {
         endDate = nil
         startDate = nil
         preset = timerPreset
-        totalDuration = timerPreset.seconds
         remaining = timerPreset.seconds
         state = .idle
         saveState()
@@ -272,14 +273,13 @@ final class TimerModel: Identifiable, ObservableObject {
     private func restoreState() {
         guard let data = userDefaults.data(forKey: savedStateKey),
               let savedState = try? JSONDecoder().decode(SavedState.self, from: data),
-              savedState.totalDuration >= 0,
+              savedState.preset.seconds >= 0,
               savedState.remaining >= 0 else { return }
 
         preset = savedState.preset
-        totalDuration = savedState.totalDuration
         remaining = isCountUp
             ? savedState.remaining
-            : min(savedState.remaining, savedState.totalDuration)
+            : min(savedState.remaining, totalDuration)
         switch savedState.state {
         case .idle: state = .idle
         case .running, .paused: state = .paused
@@ -299,7 +299,6 @@ final class TimerModel: Identifiable, ObservableObject {
 
         let savedState = SavedState(
             preset: preset,
-            totalDuration: totalDuration,
             remaining: savedRemaining,
             state: state
         )

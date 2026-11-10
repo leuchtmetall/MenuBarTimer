@@ -5,7 +5,6 @@
 
 import Combine
 import Foundation
-import SwiftUI
 
 struct TimerGroup: Identifiable, Codable, Equatable {
     let id: UUID
@@ -268,8 +267,6 @@ final class TimerGroupModel: ObservableObject {
         activeTimerID = definition.id
         timerModels[index].primaryButtonTapped()
     }
-
-    func pauseAll() { timerModels.forEach { $0.pause() } }
 
     /// `true` when every timer is idle, i.e. none has been started, paused or finished since its last reset.
     var isInInitialState: Bool { timerModels.allSatisfy { $0.state == .idle } }

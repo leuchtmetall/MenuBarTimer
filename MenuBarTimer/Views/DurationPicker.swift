@@ -6,7 +6,7 @@
 import AppKit
 import SwiftUI
 
-private enum DurationComponent: CaseIterable {
+private enum DurationComponent {
     case hours
     case minutes
     case seconds

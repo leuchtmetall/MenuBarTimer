@@ -5,7 +5,6 @@
 
 import Combine
 import Foundation
-import SwiftUI
 
 /// Which of the two mutually exclusive modes is active: a standalone preset or a timer group.
 /// Shared by `PresetsStore` and `TimerGroupsStore`, which each own one side of the selection.

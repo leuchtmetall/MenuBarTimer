@@ -12,7 +12,6 @@ import SwiftUI
 /// to match the current menu bar foreground color, so it stays visible in both light and dark mode.
 struct PieProgressView: View {
     var progress: Double
-    var trackOpacity: Double = 0.2
 
     var body: some View {
         GeometryReader { geometry in
