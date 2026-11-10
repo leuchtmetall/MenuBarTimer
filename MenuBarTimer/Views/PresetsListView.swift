@@ -7,10 +7,13 @@ import SwiftUI
 
 /// The right-hand side of the overlay: quick-start presets and the app menu.
 struct PresetsListView: View {
-    @ObservedObject var timerModel: TimerModel
+    // `timerModel` and `groupCoordinator` are not observed: the list only tells them what to load.
+    // Both publish on every tick of a running timer, which would re-evaluate the whole list once a
+    // second.
+    let timerModel: TimerModel
     @ObservedObject var presetsStore: PresetsStore
     @ObservedObject var groupsStore: TimerGroupsStore
-    @ObservedObject var groupCoordinator: TimerGroupCoordinator
+    let groupCoordinator: TimerGroupCoordinator
     @State private var isEditing = false
     /// Whether edit mode uses the wider column. Kept across edit sessions; ignored outside edit mode.
     @State private var isEditExpanded = false
