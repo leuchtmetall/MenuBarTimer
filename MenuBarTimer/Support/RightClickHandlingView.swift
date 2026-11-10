@@ -29,9 +29,19 @@ final class RightClickHandlerView: NSView {
     /// Called when the status item button's appearance changes, e.g. the menu bar turns dark.
     var onAppearanceChange: ((NSAppearance) -> Void)?
 
+    /// Reports the appearance once it has settled, not the one it is changing to right now.
+    ///
+    /// With several displays, AppKit draws the status item's copies for the other displays by
+    /// briefly giving the button each display's appearance and then restoring its own. Reporting
+    /// those passing values re-renders the label in the other color, which makes AppKit redraw the
+    /// copies again: an endless loop that flickers the label and keeps a CPU core busy. By the next
+    /// run loop turn the button has its own appearance back.
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        onAppearanceChange?(effectiveAppearance)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.onAppearanceChange?(self.effectiveAppearance)
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
