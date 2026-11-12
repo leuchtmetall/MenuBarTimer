@@ -237,6 +237,18 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "ShowOnlyActiveGroupTimerTests")
     }
 
+    @Test func compactInactiveTimerDisplaySettingDefaultsToNoneAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "CompactInactiveTimerDisplayTests")!
+        defaults.removePersistentDomain(forName: "CompactInactiveTimerDisplayTests")
+
+        #expect(AppSettings(userDefaults: defaults).compactInactiveTimerDisplay == .none)
+
+        AppSettings(userDefaults: defaults).compactInactiveTimerDisplay = .nameAndProgress
+        #expect(AppSettings(userDefaults: defaults).compactInactiveTimerDisplay == .nameAndProgress)
+
+        defaults.removePersistentDomain(forName: "CompactInactiveTimerDisplayTests")
+    }
+
     @Test func groupActiveTimerIsRestored() {
         let defaults = UserDefaults(suiteName: "TimerGroupActiveTimerTests")!
         defaults.removePersistentDomain(forName: "TimerGroupActiveTimerTests")

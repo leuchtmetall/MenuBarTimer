@@ -22,6 +22,25 @@ enum GroupTimerNameDisplay: String, CaseIterable, Identifiable {
     }
 }
 
+/// How the timers other than the active one are drawn in the menu bar in compact mode.
+enum CompactInactiveTimerDisplay: String, CaseIterable, Identifiable {
+    case none
+    case name
+    case nameAndProgress
+    case nameAndTime
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .none: return "Hidden"
+        case .name: return "Name"
+        case .nameAndProgress: return "Name and circle"
+        case .nameAndTime: return "Name and time"
+        }
+    }
+}
+
 /// User preferences for the menu bar timer.
 final class AppSettings: ObservableObject {
     @Published var groupTimerNameDisplay: GroupTimerNameDisplay {
@@ -40,6 +59,11 @@ final class AppSettings: ObservableObject {
     /// Group mode only: show just the running (or most recently active) timer in the menu bar.
     @Published var showOnlyActiveGroupTimer: Bool {
         didSet { userDefaults.set(showOnlyActiveGroupTimer, forKey: Self.showOnlyActiveGroupTimerKey) }
+    }
+    /// Compact mode only: what is shown of the group's other timers. Whatever is shown can be
+    /// option- or right-clicked to switch to that timer.
+    @Published var compactInactiveTimerDisplay: CompactInactiveTimerDisplay {
+        didSet { userDefaults.set(compactInactiveTimerDisplay.rawValue, forKey: Self.compactInactiveTimerDisplayKey) }
     }
     /// Tint each group timer's start/pause button with the timer's color.
     @Published var useTimerColorForButtons: Bool {
@@ -63,6 +87,7 @@ final class AppSettings: ObservableObject {
     private static let groupTimerColorsKey = "useGroupTimerColors"
     private static let compactColoredLabelsKey = "useCompactColoredLabels"
     private static let showOnlyActiveGroupTimerKey = "showOnlyActiveGroupTimer"
+    private static let compactInactiveTimerDisplayKey = "compactInactiveTimerDisplay"
     private static let timerColorButtonsKey = "useTimerColorForButtons"
     private static let showElapsedTimeKey = "showElapsedTimeForCountdowns"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
@@ -86,6 +111,8 @@ final class AppSettings: ObservableObject {
         useGroupTimerColors = bool(Self.groupTimerColorsKey, default: false)
         useCompactColoredLabels = bool(Self.compactColoredLabelsKey, default: false)
         showOnlyActiveGroupTimer = bool(Self.showOnlyActiveGroupTimerKey, default: false)
+        compactInactiveTimerDisplay = userDefaults.string(forKey: Self.compactInactiveTimerDisplayKey)
+            .flatMap(CompactInactiveTimerDisplay.init(rawValue:)) ?? .none
         useTimerColorForButtons = bool(Self.timerColorButtonsKey, default: true)
         showElapsedTimeForCountdowns = bool(Self.showElapsedTimeKey, default: false)
         showTimerFinishNotification = Self.timerFinishNotificationsEnabled(in: userDefaults)

@@ -21,6 +21,13 @@ struct SettingsView: View {
                     }
                     // The same setting as the "Compact" button in the timer window.
                     Toggle("Show only the active timer (compact mode)", isOn: $settings.showOnlyActiveGroupTimer)
+                    Picker("Other timers in compact mode", selection: $settings.compactInactiveTimerDisplay) {
+                        ForEach(CompactInactiveTimerDisplay.allCases) { display in
+                            Text(display.title).tag(display)
+                        }
+                    }
+                    .disabled(!settings.showOnlyActiveGroupTimer)
+                    .help("Option-click or right-click a timer in the menu bar to switch to it")
                     Toggle("Show progress circles", isOn: $settings.showGroupTimerProgress)
                     Toggle("Smaller circles and seconds", isOn: $settings.useCompactColoredLabels)
                         .help("Smaller progress circles, and smaller seconds when hours are shown")

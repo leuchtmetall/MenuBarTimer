@@ -34,7 +34,8 @@ struct MenuBarLabelView: View {
             if let groupModel = groupCoordinator.model {
                 // Colors, progress rings and the compact layout all need the rasterized label; plain
                 // `Text` can do none of them.
-                if settings.useGroupTimerColors || settings.showGroupTimerProgress || settings.useCompactColoredLabels {
+                if settings.useGroupTimerColors || settings.showGroupTimerProgress || settings.useCompactColoredLabels
+                    || reducedTimersShowProgress {
                     Image(nsImage: groupLabelImage(for: groupModel, useColors: settings.useGroupTimerColors))
                 } else {
                     groupLabel(for: groupModel)
@@ -80,19 +81,52 @@ struct MenuBarLabelView: View {
         }
     }
 
-    /// The group timers shown in the label: all of them, or in compact mode only the active one.
-    private func displayedTimerModels(for groupModel: TimerGroupModel) -> [TimerModel] {
-        guard settings.showOnlyActiveGroupTimer else { return groupModel.timerModels }
-        let active = groupModel.timerModels.first { $0.preset.id == groupModel.activeTimerID }
-            ?? groupModel.timerModels.first
-        return active.map { [$0] } ?? []
+    /// A group timer in the label. In compact mode every timer but the active one is reduced to
+    /// what `settings.compactInactiveTimerDisplay` asks for.
+    private struct DisplayedTimer {
+        let model: TimerModel
+        let isReduced: Bool
+    }
+
+    /// The group timers shown in the label, in group order: all of them in full, or in compact mode
+    /// the active one in full and the others reduced (or left out).
+    private func displayedTimers(for groupModel: TimerGroupModel) -> [DisplayedTimer] {
+        let models = groupModel.timerModels
+        guard settings.showOnlyActiveGroupTimer else {
+            return models.map { DisplayedTimer(model: $0, isReduced: false) }
+        }
+        guard let active = models.first(where: { $0.preset.id == groupModel.activeTimerID }) ?? models.first else {
+            return []
+        }
+        guard settings.compactInactiveTimerDisplay != .none else {
+            return [DisplayedTimer(model: active, isReduced: false)]
+        }
+        return models.map { DisplayedTimer(model: $0, isReduced: $0 !== active) }
+    }
+
+    /// Reduced timers with a progress circle need the rasterized label even if nothing else does.
+    private var reducedTimersShowProgress: Bool {
+        settings.showOnlyActiveGroupTimer && settings.compactInactiveTimerDisplay == .nameAndProgress
+    }
+
+    /// The name of a reduced timer. A name-only timer with names hidden would draw nothing at all,
+    /// so it falls back to the first character.
+    private func reducedName(for timerModel: TimerModel) -> String {
+        let name = displayName(for: timerModel)
+        guard name.isEmpty, settings.compactInactiveTimerDisplay == .name else { return name }
+        return String(timerModel.preset.name.prefix(1))
     }
 
     /// The text of every timer in the plain-text group label, paired with its `TimerPreset.id`.
     /// Shared by the label itself and by its measurement so the two cannot drift apart.
     private func groupLabelSegments(for groupModel: TimerGroupModel) -> [(id: UUID, text: String)] {
-        displayedTimerModels(for: groupModel).map { timerModel in
-            let name = displayName(for: timerModel)
+        displayedTimers(for: groupModel).map { timer in
+            let timerModel = timer.model
+            let name = timer.isReduced ? reducedName(for: timerModel) : displayName(for: timerModel)
+            // The plain-text label is never used for `.nameAndProgress` (see `body`).
+            guard !timer.isReduced || settings.compactInactiveTimerDisplay == .nameAndTime else {
+                return (timerModel.preset.id, name)
+            }
             let prefix = name.isEmpty ? "" : name + " "
             return (timerModel.preset.id, prefix + timerModel.timeString)
         }
@@ -124,16 +158,19 @@ struct MenuBarLabelView: View {
         let defaultColor: Color = menuBarAppearance.isDark ? .white : .black
         let isCompact = settings.useCompactColoredLabels
         let ringSize = isCompact ? compactIconSize : iconSize
-        let timerModels = displayedTimerModels(for: groupModel)
-        let items = timerModels.map { timerModel in
-            GroupTimerLabelItem(
-                name: displayName(for: timerModel),
+        let timers = displayedTimers(for: groupModel)
+        let reducedDisplay = settings.compactInactiveTimerDisplay
+        let items = timers.map { timer in
+            let timerModel = timer.model
+            return GroupTimerLabelItem(
+                name: timer.isReduced ? reducedName(for: timerModel) : displayName(for: timerModel),
                 timeString: timerModel.timeString,
                 color: (useColors ? TimerColor.color(named: timerModel.preset.colorName) : nil) ?? defaultColor,
                 isStopwatch: timerModel.preset.isStopwatch,
                 progress: timerModel.progress,
                 isActive: timerModel.state == .running,
-                showProgress: settings.showGroupTimerProgress,
+                showProgress: timer.isReduced ? reducedDisplay == .nameAndProgress : settings.showGroupTimerProgress,
+                showTime: !timer.isReduced || reducedDisplay == .nameAndTime,
                 isCompact: isCompact,
                 ringSize: ringSize
             )
@@ -146,7 +183,7 @@ struct MenuBarLabelView: View {
 
         layout.update(
             segments: MenuBarLabelLayout.distribute(
-                ids: timerModels.map { $0.preset.id },
+                ids: timers.map { $0.model.preset.id },
                 widths: items.map { item in layout.width(for: item.widthKey) { viewWidth(of: item) } },
                 gap: ColoredGroupMenuBarLabel.spacing,
                 leadingInset: ColoredGroupMenuBarLabel.leadingPadding
@@ -202,6 +239,8 @@ private struct GroupTimerLabelItem: View {
     /// The running timer gets a tinted background so it stands out from the paused ones.
     let isActive: Bool
     let showProgress: Bool
+    /// `false` for a reduced timer in compact mode that shows only its name (and circle).
+    let showTime: Bool
     let isCompact: Bool
     let ringSize: CGFloat
 
@@ -220,7 +259,7 @@ private struct GroupTimerLabelItem: View {
     var widthKey: WidthKey {
         WidthKey(
             name: name,
-            timeShape: String(timeString.map { $0.isNumber ? "0" : $0 }),
+            timeShape: showTime ? String(timeString.map { $0.isNumber ? "0" : $0 }) : "",
             isStopwatch: isStopwatch,
             showProgress: showProgress,
             isCompact: isCompact,
@@ -242,11 +281,13 @@ private struct GroupTimerLabelItem: View {
                     Image(nsImage: ProgressRingImage.image(progress: progress, size: ringSize))
                 }
             }
-            timeText
-                .monospacedDigit()
-                .padding(.top, -2)
-                .padding(.trailing, 1)
-                .padding(.leading, -0.5)
+            if showTime {
+                timeText
+                    .monospacedDigit()
+                    .padding(.top, -2)
+                    .padding(.trailing, 1)
+                    .padding(.leading, -0.5)
+            }
         }
         .font(Font(Self.font))
         .foregroundStyle(color)
@@ -283,7 +324,7 @@ private struct GroupTimerLabelItem: View {
     let item: (Bool, String) -> GroupTimerLabelItem = { isCompact, time in
         GroupTimerLabelItem(
             name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3, isActive: false,
-            showProgress: true, isCompact: isCompact, ringSize: isCompact ? 14 : 18
+            showProgress: true, showTime: true, isCompact: isCompact, ringSize: isCompact ? 14 : 18
         )
     }
     VStack(alignment: .leading, spacing: 8) {

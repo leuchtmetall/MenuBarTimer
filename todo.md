@@ -1,7 +1,6 @@
 ToDo:
 - compact mode:
   - indicator that compat mode is active
-  - semi-compact with small circle for inactive timers
 - multiple timers / timer groups
 - option: count up after reaching zero (for count-down timers)
 - save/load presets
