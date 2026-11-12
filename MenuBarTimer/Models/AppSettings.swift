@@ -25,6 +25,8 @@ enum GroupTimerNameDisplay: String, CaseIterable, Identifiable {
 /// How the timers other than the active one are drawn in the menu bar in compact mode.
 enum CompactInactiveTimerDisplay: String, CaseIterable, Identifiable {
     case none
+    /// Left out like `.none`, but each one leaves a small dot behind.
+    case dots
     case name
     case nameAndProgress
     case nameAndTime
@@ -34,6 +36,7 @@ enum CompactInactiveTimerDisplay: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .none: return "Hidden"
+        case .dots: return "Dots"
         case .name: return "Name"
         case .nameAndProgress: return "Name and circle"
         case .nameAndTime: return "Name and time"
@@ -60,8 +63,8 @@ final class AppSettings: ObservableObject {
     @Published var showOnlyActiveGroupTimer: Bool {
         didSet { userDefaults.set(showOnlyActiveGroupTimer, forKey: Self.showOnlyActiveGroupTimerKey) }
     }
-    /// Compact mode only: what is shown of the group's other timers. Whatever is shown can be
-    /// option- or right-clicked to switch to that timer.
+    /// Compact mode only: what is shown of the group's other timers. Names, circles and times can
+    /// be option- or right-clicked to switch to that timer; dots are too small for that.
     @Published var compactInactiveTimerDisplay: CompactInactiveTimerDisplay {
         didSet { userDefaults.set(compactInactiveTimerDisplay.rawValue, forKey: Self.compactInactiveTimerDisplayKey) }
     }

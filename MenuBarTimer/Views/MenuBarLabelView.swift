@@ -32,10 +32,10 @@ struct MenuBarLabelView: View {
     var body: some View {
         Group {
             if let groupModel = groupCoordinator.model {
-                // Colors, progress rings and the compact layout all need the rasterized label; plain
-                // `Text` can do none of them.
+                // Colors, progress rings, the compact layout and the dots for hidden timers all need
+                // the rasterized label; plain `Text` can do none of them.
                 if settings.useGroupTimerColors || settings.showGroupTimerProgress || settings.useCompactColoredLabels
-                    || reducedTimersShowProgress {
+                    || reducedTimersShowProgress || hasHiddenTimerDots(for: groupModel) {
                     Image(nsImage: groupLabelImage(for: groupModel, useColors: settings.useGroupTimerColors))
                 } else {
                     groupLabel(for: groupModel)
@@ -95,13 +95,42 @@ struct MenuBarLabelView: View {
         guard settings.showOnlyActiveGroupTimer else {
             return models.map { DisplayedTimer(model: $0, isReduced: false) }
         }
-        guard let active = models.first(where: { $0.preset.id == groupModel.activeTimerID }) ?? models.first else {
-            return []
-        }
-        guard settings.compactInactiveTimerDisplay != .none else {
+        guard let active = activeTimer(in: groupModel) else { return [] }
+        switch settings.compactInactiveTimerDisplay {
+        case .none, .dots:
+            // Dots are not timers in the label: they are drawn around it (see `hiddenTimers`).
             return [DisplayedTimer(model: active, isReduced: false)]
+        case .name, .nameAndProgress, .nameAndTime:
+            break
         }
         return models.map { DisplayedTimer(model: $0, isReduced: $0 !== active) }
+    }
+
+    /// The timer compact mode draws in full: the group's active one, or the first while none is.
+    private func activeTimer(in groupModel: TimerGroupModel) -> TimerModel? {
+        let models = groupModel.timerModels
+        return models.first(where: { $0.preset.id == groupModel.activeTimerID }) ?? models.first
+    }
+
+    /// The timers compact mode replaces with a dot (`CompactInactiveTimerDisplay.dots`), so it is
+    /// still visible that the group has more timers. The dots keep the group's order: timers before
+    /// the active one are drawn before it, the others after it. Each side is capped at
+    /// `HiddenTimerDots.maxCount`, keeping the timers closest to the active one.
+    private func hiddenTimers(for groupModel: TimerGroupModel) -> (leading: [TimerModel], trailing: [TimerModel]) {
+        let models = groupModel.timerModels
+        guard settings.showOnlyActiveGroupTimer, settings.compactInactiveTimerDisplay == .dots,
+              let active = activeTimer(in: groupModel),
+              let activeIndex = models.firstIndex(where: { $0 === active }) else { return ([], []) }
+        return (
+            Array(models[..<activeIndex].suffix(HiddenTimerDots.maxCount)),
+            Array(models[(activeIndex + 1)...].prefix(HiddenTimerDots.maxCount))
+        )
+    }
+
+    /// Dots need the rasterized label even if nothing else does.
+    private func hasHiddenTimerDots(for groupModel: TimerGroupModel) -> Bool {
+        let hidden = hiddenTimers(for: groupModel)
+        return !hidden.leading.isEmpty || !hidden.trailing.isEmpty
     }
 
     /// Reduced timers with a progress circle need the rasterized label even if nothing else does.
@@ -176,7 +205,17 @@ struct MenuBarLabelView: View {
             )
         }
 
-        let renderer = ImageRenderer(content: ColoredGroupMenuBarLabel(items: items))
+        // Hidden timers without a color get a dimmed dot, so the dots read as secondary to the time.
+        let dotColor: (TimerModel) -> Color = { timerModel in
+            (useColors ? TimerColor.color(named: timerModel.preset.colorName) : nil) ?? defaultColor.opacity(0.5)
+        }
+        let hidden = hiddenTimers(for: groupModel)
+        let label = ColoredGroupMenuBarLabel(
+            items: items,
+            leadingDotColors: hidden.leading.map(dotColor),
+            trailingDotColors: hidden.trailing.map(dotColor)
+        )
+        let renderer = ImageRenderer(content: label)
         renderer.scale = NSScreen.highestBackingScaleFactor
         let image = renderer.nsImage ?? NSImage(size: .zero)
         image.isTemplate = false
@@ -186,7 +225,10 @@ struct MenuBarLabelView: View {
                 ids: timers.map { $0.model.preset.id },
                 widths: items.map { item in layout.width(for: item.widthKey) { viewWidth(of: item) } },
                 gap: ColoredGroupMenuBarLabel.spacing,
+                // The dots belong to the segment of the (only) timer they surround.
                 leadingInset: ColoredGroupMenuBarLabel.leadingPadding
+                    + ColoredGroupMenuBarLabel.leadingDotsWidth(count: hidden.leading.count),
+                trailingInset: ColoredGroupMenuBarLabel.trailingDotsWidth(count: hidden.trailing.count)
             ),
             contentWidth: image.size.width
         )
@@ -211,12 +253,43 @@ private struct ColoredGroupMenuBarLabel: View {
     static let leadingPadding: CGFloat = 4
     static let verticalPadding: CGFloat = 2
 
+    /// Between the timers and the dots for hidden timers after them. Wide enough to clear the
+    /// running timer's background, which overhangs the item.
+    static let trailingDotsGap: CGFloat = 6
+    /// Between the dots for hidden timers and the timers after them. Wider than the trailing gap
+    /// because an item draws its name (and background) 4pt to the left of its own frame.
+    static let leadingDotsGap: CGFloat = 10
+
     let items: [GroupTimerLabelItem]
+    /// One dot per timer that compact mode hides, split by whether the timer comes before or after
+    /// the active one in the group. Both are empty in every other mode.
+    var leadingDotColors: [Color] = []
+    var trailingDotColors: [Color] = []
+
+    /// The width the dots before the timers add to the label, including the gap after them.
+    static func leadingDotsWidth(count: Int) -> CGFloat {
+        count > 0 ? HiddenTimerDots.width(count: count) + leadingDotsGap : 0
+    }
+
+    /// The width the dots after the timers add to the label, including the gap before them.
+    static func trailingDotsWidth(count: Int) -> CGFloat {
+        count > 0 ? trailingDotsGap + HiddenTimerDots.width(count: count) : 0
+    }
 
     var body: some View {
-        HStack(spacing: Self.spacing) {
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                item
+        HStack(spacing: 0) {
+            if !leadingDotColors.isEmpty {
+                HiddenTimerDots(colors: leadingDotColors)
+                    .padding(.trailing, Self.leadingDotsGap)
+            }
+            HStack(spacing: Self.spacing) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    item
+                }
+            }
+            if !trailingDotColors.isEmpty {
+                HiddenTimerDots(colors: trailingDotColors)
+                    .padding(.leading, Self.trailingDotsGap)
             }
         }
         .fixedSize()
@@ -225,6 +298,31 @@ private struct ColoredGroupMenuBarLabel: View {
         // top padding, which lets tall emoji glyphs (e.g. 👦🏻, 💼) poke out above the label and get
         // cut off. Symmetric headroom keeps them in the image without moving the label off-center.
         .padding(.vertical, Self.verticalPadding)
+    }
+}
+
+/// The indicator for the timers compact mode hides: one small dot each, in the timer's color.
+private struct HiddenTimerDots: View {
+    /// More hidden timers than this on one side of the active timer still get only this many dots,
+    /// to keep the label short.
+    static let maxCount = 5
+    static let dotSize: CGFloat = 4
+    static let spacing: CGFloat = 2
+
+    let colors: [Color]
+
+    static func width(count: Int) -> CGFloat {
+        count > 0 ? CGFloat(count) * dotSize + CGFloat(count - 1) * spacing : 0
+    }
+
+    var body: some View {
+        HStack(spacing: Self.spacing) {
+            ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
+                Circle().fill(color).frame(width: Self.dotSize, height: Self.dotSize)
+            }
+        }
+        // The timers pull their text up by the same amount.
+        .offset(y: -1)
     }
 }
 
@@ -330,6 +428,9 @@ private struct GroupTimerLabelItem: View {
     VStack(alignment: .leading, spacing: 8) {
         HStack { item(false, "1:23:45"); item(false, "12:34") }
         HStack { item(true, "1:23:45"); item(true, "12:34") }
+        ColoredGroupMenuBarLabel(items: [item(false, "12:34")], leadingDotColors: [.orange], trailingDotColors: [.green, .purple])
+        ColoredGroupMenuBarLabel(items: [item(true, "12:34")], trailingDotColors: Array(repeating: .primary.opacity(0.5), count: 5))
+        ColoredGroupMenuBarLabel(items: [item(true, "12:34")], leadingDotColors: Array(repeating: .primary.opacity(0.5), count: 2))
     }
     .padding()
 }

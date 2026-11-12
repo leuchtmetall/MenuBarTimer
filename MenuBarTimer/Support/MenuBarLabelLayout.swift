@@ -77,18 +77,21 @@ final class MenuBarLabelLayout {
     ///
     /// The space between two timers is split evenly between them, so every point of the label
     /// belongs to exactly one timer and there are no dead zones between segments. Any inset before
-    /// the first timer belongs to that timer.
+    /// the first timer belongs to that timer, and anything after the last timer (the dots for
+    /// hidden timers in compact mode) to the last one.
     static func distribute(
         ids: [UUID],
         widths: [CGFloat],
         gap: CGFloat,
-        leadingInset: CGFloat = 0
+        leadingInset: CGFloat = 0,
+        trailingInset: CGFloat = 0
     ) -> [Segment] {
         guard ids.count == widths.count, !ids.isEmpty else { return [] }
         let halfGap = gap / 2
         return ids.indices.map { index in
             var width = widths[index]
             if index == 0 { width += leadingInset }
+            if index == ids.count - 1 { width += trailingInset }
             if index > 0 { width += halfGap }
             if index < ids.count - 1 { width += halfGap }
             return Segment(timerID: ids[index], width: width)

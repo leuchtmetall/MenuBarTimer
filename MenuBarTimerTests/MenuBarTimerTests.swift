@@ -375,6 +375,18 @@ struct MenuBarTimerTests {
         #expect(MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10], gap: 4).isEmpty)
     }
 
+    @Test func groupLabelTrailingInsetBelongsToTheLastTimer() {
+        let ids = [UUID(), UUID(), UUID()]
+        let segments = MenuBarLabelLayout.distribute(ids: ids, widths: [10, 10, 10], gap: 4, trailingInset: 16)
+        #expect(segments.map(\.width) == [12, 14, 28])
+
+        // Compact mode: the only timer shown takes both insets (the dots for hidden timers trail it).
+        let single = MenuBarLabelLayout.distribute(
+            ids: [ids[0]], widths: [10], gap: 4, leadingInset: 2, trailingInset: 16
+        )
+        #expect(single.map(\.width) == [28])
+    }
+
     @Test func groupLabelWidthsAreMeasuredOncePerKey() {
         let layout = MenuBarLabelLayout()
         var measurements = 0
