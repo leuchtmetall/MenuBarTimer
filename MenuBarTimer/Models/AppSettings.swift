@@ -9,6 +9,8 @@ import Foundation
 enum GroupTimerNameDisplay: String, CaseIterable, Identifiable {
     case wholeLabel
     case firstCharacter
+    /// The first character inside a donut-shaped progress ring, which replaces the progress circle.
+    case firstCharacterInCircle
     case none
 
     var id: Self { self }
@@ -17,6 +19,7 @@ enum GroupTimerNameDisplay: String, CaseIterable, Identifiable {
         switch self {
         case .wholeLabel: return "Full name"
         case .firstCharacter: return "First letter"
+        case .firstCharacterInCircle: return "Letter in circle"
         case .none: return "Hidden"
         }
     }

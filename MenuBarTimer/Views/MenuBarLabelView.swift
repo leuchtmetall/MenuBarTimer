@@ -32,9 +32,10 @@ struct MenuBarLabelView: View {
     var body: some View {
         Group {
             if let groupModel = groupCoordinator.model {
-                // Colors, progress rings, the compact layout and the dots for hidden timers all need
-                // the rasterized label; plain `Text` can do none of them.
+                // Colors, progress rings (around a letter or not), the compact layout and the dots for
+                // hidden timers all need the rasterized label; plain `Text` can do none of them.
                 if settings.useGroupTimerColors || settings.showGroupTimerProgress || settings.useCompactColoredLabels
+                    || settings.groupTimerNameDisplay == .firstCharacterInCircle
                     || reducedTimersNeedImage || hasHiddenTimerDots(for: groupModel) {
                     Image(nsImage: groupLabelImage(for: groupModel, useColors: settings.useGroupTimerColors))
                 } else {
@@ -76,7 +77,7 @@ struct MenuBarLabelView: View {
         let timerName = timerModel.preset.name
         switch settings.groupTimerNameDisplay {
         case .wholeLabel: return timerName
-        case .firstCharacter: return String(timerName.prefix(1))
+        case .firstCharacter, .firstCharacterInCircle: return String(timerName.prefix(1))
         case .none: return ""
         }
     }
@@ -197,9 +198,13 @@ struct MenuBarLabelView: View {
         let items = timers.map { timer in
             let timerModel = timer.model
             let itemColor = (useColors ? TimerColor.color(named: timerModel.preset.colorName) : nil) ?? defaultColor
-            if timer.isReduced, reducedDisplay == .initialInCircle {
-                // Always the first character, whatever the name display setting, and always the
-                // full-size ring: a smaller one leaves no room for the character.
+            // The name is a ring around its first character: for every timer when the name display
+            // asks for it, and for reduced timers when the compact mode setting does.
+            let isRing = settings.groupTimerNameDisplay == .firstCharacterInCircle
+                || (timer.isReduced && reducedDisplay == .initialInCircle)
+            if isRing {
+                // The ring is name and progress circle in one, and always full size: a smaller one
+                // leaves no room for the character.
                 return GroupTimerLabelItem(
                     name: String(timerModel.preset.name.prefix(1)),
                     timeString: timerModel.timeString,
@@ -208,7 +213,7 @@ struct MenuBarLabelView: View {
                     progress: timerModel.preset.isStopwatch ? 0 : timerModel.progress,
                     isActive: timerModel.state == .running,
                     showProgress: false,
-                    showTime: false,
+                    showTime: !timer.isReduced || reducedDisplay == .nameAndTime,
                     isCompact: isCompact,
                     ringSize: iconSize,
                     isInitialRing: true
@@ -364,8 +369,8 @@ private struct GroupTimerLabelItem: View {
     let showTime: Bool
     let isCompact: Bool
     let ringSize: CGFloat
-    /// A reduced timer in compact mode drawn as a donut-shaped progress ring around `name` (its
-    /// first character), instead of as name, circle and time side by side.
+    /// The name is drawn inside a donut-shaped progress ring (`name` is its first character), which
+    /// replaces both the name and the progress circle in front of the time.
     var isInitialRing = false
 
     /// Everything the item's width depends on, so `MenuBarLabelLayout` can reuse a measured width.
@@ -402,27 +407,25 @@ private struct GroupTimerLabelItem: View {
     private static let initialFont = Font.system(size: 9, weight: .semibold)
 
     var body: some View {
-        Group {
+        HStack(spacing: 2) {
             if isInitialRing {
                 initialRing
             } else {
-                HStack(spacing: 2) {
-                    Text(name).padding(.top, -2).padding(.leading, -4)
-                    if showProgress {
-                        if isStopwatch {
-                            Image(systemName: "stopwatch")
-                        } else {
-                            Image(nsImage: ProgressRingImage.image(progress: progress, size: ringSize))
-                        }
-                    }
-                    if showTime {
-                        timeText
-                            .monospacedDigit()
-                            .padding(.top, -2)
-                            .padding(.trailing, 1)
-                            .padding(.leading, -0.5)
+                Text(name).padding(.top, -2).padding(.leading, -4)
+                if showProgress {
+                    if isStopwatch {
+                        Image(systemName: "stopwatch")
+                    } else {
+                        Image(nsImage: ProgressRingImage.image(progress: progress, size: ringSize))
                     }
                 }
+            }
+            if showTime {
+                timeText
+                    .monospacedDigit()
+                    .padding(.top, -2)
+                    .padding(.trailing, 1)
+                    .padding(.leading, -0.5)
             }
         }
         .font(Font(Self.font))
@@ -488,6 +491,12 @@ private struct GroupTimerLabelItem: View {
             showProgress: false, showTime: false, isCompact: false, ringSize: 18, isInitialRing: true
         )
     }
+    let ringItem: (Bool, String, Bool) -> GroupTimerLabelItem = { isCompact, time, isActive in
+        GroupTimerLabelItem(
+            name: "W", timeString: time, color: .blue, isStopwatch: false, progress: 0.3, isActive: isActive,
+            showProgress: false, showTime: true, isCompact: isCompact, ringSize: 18, isInitialRing: true
+        )
+    }
     VStack(alignment: .leading, spacing: 8) {
         HStack { item(false, "1:23:45"); item(false, "12:34") }
         HStack { item(true, "1:23:45"); item(true, "12:34") }
@@ -496,6 +505,9 @@ private struct GroupTimerLabelItem: View {
         ColoredGroupMenuBarLabel(items: [item(true, "12:34")], leadingDotColors: Array(repeating: .primary.opacity(0.5), count: 2))
         ForEach([false, true], id: \.self) { isCompact in
             ColoredGroupMenuBarLabel(items: [ring("W", .blue, 0.3), item(isCompact, "12:34"), ring("p", .primary, 0.7), ring("💼", .orange, 0), ring("M", .green, 1)])
+        }
+        ForEach([false, true], id: \.self) { isCompact in
+            ColoredGroupMenuBarLabel(items: [ringItem(isCompact, "1:23:45", false), ringItem(isCompact, "12:34", true), ring("M", .green, 1)])
         }
     }
     .padding()

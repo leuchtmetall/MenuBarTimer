@@ -251,6 +251,18 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "ShowOnlyActiveGroupTimerTests")
     }
 
+    @Test func groupTimerNameDisplaySettingDefaultsToFullNameAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "GroupTimerNameDisplayTests")!
+        defaults.removePersistentDomain(forName: "GroupTimerNameDisplayTests")
+
+        #expect(AppSettings(userDefaults: defaults).groupTimerNameDisplay == .wholeLabel)
+
+        AppSettings(userDefaults: defaults).groupTimerNameDisplay = .firstCharacterInCircle
+        #expect(AppSettings(userDefaults: defaults).groupTimerNameDisplay == .firstCharacterInCircle)
+
+        defaults.removePersistentDomain(forName: "GroupTimerNameDisplayTests")
+    }
+
     @Test func compactInactiveTimerDisplaySettingDefaultsToNoneAndIsPersisted() {
         let defaults = UserDefaults(suiteName: "CompactInactiveTimerDisplayTests")!
         defaults.removePersistentDomain(forName: "CompactInactiveTimerDisplayTests")

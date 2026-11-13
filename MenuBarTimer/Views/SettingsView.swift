@@ -28,7 +28,11 @@ struct SettingsView: View {
                     }
                     .disabled(!settings.showOnlyActiveGroupTimer)
                     .help("Option-click or right-click a timer in the menu bar to switch to it")
+                    // "Letter in circle" names are the progress circle.
                     Toggle("Show progress circles", isOn: $settings.showGroupTimerProgress)
+                        .disabled(settings.groupTimerNameDisplay == .firstCharacterInCircle)
+                        .help(settings.groupTimerNameDisplay == .firstCharacterInCircle
+                              ? "The circle around the timer's letter already shows the progress" : "")
                     Toggle("Smaller circles and seconds", isOn: $settings.useCompactColoredLabels)
                         .help("Smaller progress circles, and smaller seconds when hours are shown")
                     Toggle("Use timer colors", isOn: $settings.useGroupTimerColors)
