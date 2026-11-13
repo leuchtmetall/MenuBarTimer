@@ -37,6 +37,7 @@ struct SettingsView: View {
                 Section("Timer window") {
                     Toggle("Use timer colors for start buttons of group timers", isOn: $settings.useTimerColorForButtons)
                     Toggle("Show elapsed time below countdown timers", isOn: $settings.showElapsedTimeForCountdowns)
+                    Toggle("Keep on top of other windows", isOn: $settings.keepPanelOnTop)
                     Toggle("Swipe right with two fingers to close", isOn: $settings.swipeToDismissPanel)
                 }
 

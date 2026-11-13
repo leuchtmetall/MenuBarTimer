@@ -211,6 +211,20 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "ShowElapsedTimeSettingTests")
     }
 
+    @Test func keepPanelOnTopSettingDefaultsOnAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "KeepPanelOnTopSettingTests")!
+        defaults.removePersistentDomain(forName: "KeepPanelOnTopSettingTests")
+
+        #expect(AppSettings(userDefaults: defaults).keepPanelOnTop)
+        #expect(AppSettings.keepPanelOnTopEnabled(in: defaults))
+
+        AppSettings(userDefaults: defaults).keepPanelOnTop = false
+        #expect(AppSettings(userDefaults: defaults).keepPanelOnTop == false)
+        #expect(AppSettings.keepPanelOnTopEnabled(in: defaults) == false)
+
+        defaults.removePersistentDomain(forName: "KeepPanelOnTopSettingTests")
+    }
+
     @Test func swipeToDismissSettingDefaultsOnAndIsPersisted() {
         let defaults = UserDefaults(suiteName: "SwipeToDismissSettingTests")!
         defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")

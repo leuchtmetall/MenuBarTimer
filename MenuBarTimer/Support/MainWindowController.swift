@@ -6,11 +6,12 @@
 import AppKit
 import SwiftUI
 
-/// Shows the main UI in a floating panel that a left-click on the menu bar item toggles.
+/// Shows the main UI in a panel that a left-click on the menu bar item toggles.
 ///
 /// This replaces `MenuBarExtra`'s own popover window, which is slow to appear, closes on any click
 /// outside it and can't be moved. The panel stays open until it is toggled or closed, keeps the
-/// position the user dragged it to, and floats above other apps' windows.
+/// position the user dragged it to, and floats above other apps' windows unless the user turned
+/// that off (`AppSettings.keepPanelOnTop`).
 @MainActor
 final class MainWindowController: NSObject {
     private var panel: MainPanel?
@@ -20,6 +21,28 @@ final class MainWindowController: NSObject {
     private var hasBeenPositioned = false
 
     var isVisible: Bool { panel?.isVisible ?? false }
+
+    private var keepsPanelOnTop: Bool { AppSettings.keepPanelOnTopEnabled(in: .standard) }
+
+    override init() {
+        super.init()
+        // Applies a change of the "keep on top" setting to a panel that is already open.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(userDefaultsDidChange(_:)), name: UserDefaults.didChangeNotification, object: UserDefaults.standard
+        )
+    }
+
+    @objc private func userDefaultsDidChange(_ notification: Notification) {
+        applyWindowLevel()
+    }
+
+    private func applyWindowLevel() {
+        guard let panel else { return }
+        let level: NSWindow.Level = keepsPanelOnTop ? .floating : .normal
+        guard panel.level != level else { return }
+        panel.level = level
+        panel.isFloatingPanel = keepsPanelOnTop
+    }
 
     /// Takes over left-clicks on `statusItem` from `MenuBarExtra`, so they toggle this panel instead
     /// of SwiftUI's popover. Safe to call repeatedly.
@@ -43,8 +66,11 @@ final class MainWindowController: NSObject {
     }
 
     /// Shows the panel below the status item, or hides it if it is already visible.
+    ///
+    /// A panel that doesn't stay on top can be visible but buried under other windows; unless it is
+    /// the key window, a click then brings it back to the front instead of hiding it.
     func toggle() {
-        if isVisible {
+        if isVisible, keepsPanelOnTop || panel?.isKeyWindow == true {
             hide()
         } else {
             show()
@@ -60,6 +86,7 @@ final class MainWindowController: NSObject {
         guard let button = statusButton else { return }
         guard let panel = panel ?? makeContent.map({ makePanel(content: $0()) }) else { return }
         self.panel = panel
+        applyWindowLevel()
 
         if !hasBeenPositioned || !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(panel.frame) }) {
             position(panel, below: button)
@@ -106,8 +133,7 @@ final class MainWindowController: NSObject {
         panel.contentView = container
         panel.onCancel = { [weak self] in self?.hide() }
         panel.onSwipeDismiss = { [weak self] in self?.hide() }
-        panel.level = .floating
-        panel.isFloatingPanel = true
+        // The level is set by `applyWindowLevel()` when the panel is shown.
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = .clear

@@ -84,6 +84,11 @@ final class AppSettings: ObservableObject {
         didSet { userDefaults.set(swipeToDismissPanel, forKey: Self.swipeToDismissKey) }
     }
 
+    /// Keep the main panel above other apps' windows.
+    @Published var keepPanelOnTop: Bool {
+        didSet { userDefaults.set(keepPanelOnTop, forKey: Self.keepPanelOnTopKey) }
+    }
+
     private static let nameDisplayKey = "groupTimerNameDisplay"
     private static let legacyAbbreviateNamesKey = "abbreviateGroupTimerNames"
     private static let showProgressKey = "showGroupTimerProgress"
@@ -95,6 +100,7 @@ final class AppSettings: ObservableObject {
     private static let showElapsedTimeKey = "showElapsedTimeForCountdowns"
     static let timerFinishNotificationKey = "showTimerFinishNotification"
     static let swipeToDismissKey = "swipeToDismissPanel"
+    static let keepPanelOnTopKey = "keepPanelOnTop"
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -120,6 +126,7 @@ final class AppSettings: ObservableObject {
         showElapsedTimeForCountdowns = bool(Self.showElapsedTimeKey, default: false)
         showTimerFinishNotification = Self.timerFinishNotificationsEnabled(in: userDefaults)
         swipeToDismissPanel = Self.swipeToDismissEnabled(in: userDefaults)
+        keepPanelOnTop = Self.keepPanelOnTopEnabled(in: userDefaults)
     }
 
     /// Read directly by `TimerModel`, which only has the `UserDefaults` it was created with.
@@ -130,6 +137,11 @@ final class AppSettings: ObservableObject {
     /// Read directly by `MainPanel`, which has no access to the `AppSettings` environment object.
     static func swipeToDismissEnabled(in userDefaults: UserDefaults) -> Bool {
         bool(swipeToDismissKey, default: true, in: userDefaults)
+    }
+
+    /// Read directly by `MainWindowController`, which has no access to the `AppSettings` environment object.
+    static func keepPanelOnTopEnabled(in userDefaults: UserDefaults) -> Bool {
+        bool(keepPanelOnTopKey, default: true, in: userDefaults)
     }
 
     /// A stored flag, or `defaultValue` while the user hasn't set it (`bool(forKey:)` can't tell an
