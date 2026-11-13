@@ -411,7 +411,7 @@ private struct GroupTimerLabelItem: View {
             if isInitialRing {
                 initialRing
             } else {
-                Text(name).padding(.top, -2).padding(.leading, -4)
+                Text(name).padding(.top, -1).padding(.leading, -4)
                 if showProgress {
                     if isStopwatch {
                         Image(systemName: "stopwatch")
@@ -422,10 +422,10 @@ private struct GroupTimerLabelItem: View {
             }
             if showTime {
                 timeText
-                    .monospacedDigit()
                     .padding(.top, -2)
                     .padding(.trailing, 1)
-                    .padding(.leading, -0.5)
+                    .padding(.leading, 1.5)
+                    .offset(y: 0.5)
             }
         }
         .font(Font(Self.font))
