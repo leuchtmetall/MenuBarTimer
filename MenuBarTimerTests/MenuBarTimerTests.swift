@@ -260,6 +260,9 @@ struct MenuBarTimerTests {
         AppSettings(userDefaults: defaults).compactInactiveTimerDisplay = .nameAndProgress
         #expect(AppSettings(userDefaults: defaults).compactInactiveTimerDisplay == .nameAndProgress)
 
+        AppSettings(userDefaults: defaults).compactInactiveTimerDisplay = .initialInCircle
+        #expect(AppSettings(userDefaults: defaults).compactInactiveTimerDisplay == .initialInCircle)
+
         defaults.removePersistentDomain(forName: "CompactInactiveTimerDisplayTests")
     }
 

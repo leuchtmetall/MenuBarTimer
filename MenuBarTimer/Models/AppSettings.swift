@@ -28,6 +28,8 @@ enum CompactInactiveTimerDisplay: String, CaseIterable, Identifiable {
     /// Left out like `.none`, but each one leaves a small dot behind.
     case dots
     case name
+    /// A progress ring with the first character of the timer's name inside it.
+    case initialInCircle
     case nameAndProgress
     case nameAndTime
 
@@ -38,6 +40,7 @@ enum CompactInactiveTimerDisplay: String, CaseIterable, Identifiable {
         case .none: return "Hidden"
         case .dots: return "Dots"
         case .name: return "Name"
+        case .initialInCircle: return "Letter in circle"
         case .nameAndProgress: return "Name and circle"
         case .nameAndTime: return "Name and time"
         }
@@ -63,8 +66,9 @@ final class AppSettings: ObservableObject {
     @Published var showOnlyActiveGroupTimer: Bool {
         didSet { userDefaults.set(showOnlyActiveGroupTimer, forKey: Self.showOnlyActiveGroupTimerKey) }
     }
-    /// Compact mode only: what is shown of the group's other timers. Names, circles and times can
-    /// be option- or right-clicked to switch to that timer; dots are too small for that.
+    /// Compact mode only: what is shown of the group's other timers. Names, circles (with or
+    /// without a letter) and times can be option- or right-clicked to switch to that timer; dots
+    /// are too small for that.
     @Published var compactInactiveTimerDisplay: CompactInactiveTimerDisplay {
         didSet { userDefaults.set(compactInactiveTimerDisplay.rawValue, forKey: Self.compactInactiveTimerDisplayKey) }
     }
