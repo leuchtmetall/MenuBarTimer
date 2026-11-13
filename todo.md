@@ -1,7 +1,4 @@
 ToDo:
-- compact mode:
-  - small character in circle
-  - preview in settings
 - multiple timers / timer groups
 - option: count up after reaching zero (for count-down timers)
 - save/load presets
