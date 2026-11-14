@@ -14,9 +14,17 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             Form {
                 Section("Timer groups in the menu bar") {
-                    Picker("Timer names", selection: $settings.groupTimerNameDisplay) {
-                        ForEach(GroupTimerNameDisplay.allCases) { display in
-                            Text(display.title).tag(display)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Picker("Timer names", selection: $settings.groupTimerNameDisplay) {
+                            ForEach(GroupTimerNameDisplay.allCases) { display in
+                                Text(display.title).tag(display)
+                            }
+                        }
+                        if settings.groupTimerNameDisplay == .firstCharacter
+                            || settings.groupTimerNameDisplay == .firstCharacterInCircle {
+                            Text("Tip: start a timer's name with an emoji to show it instead of a letter.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     // The same setting as the "Compact" button in the timer window.
