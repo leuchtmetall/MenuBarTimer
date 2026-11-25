@@ -123,6 +123,108 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "TimerGroupRenameTests")
     }
 
+    @Test func groupAutoStartsNextTimerWhenOneFinishes() {
+        let defaults = UserDefaults(suiteName: "TimerGroupAutoStartTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartTests")
+        let timers = [TimerPreset(seconds: 60), TimerPreset(seconds: 30), TimerPreset(seconds: 90)]
+        let group = TimerGroup(timers: timers, autoStartsNextTimer: true)
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+
+        model.start(timers[0])
+        model.timerModels[0].setProgress(1)
+
+        #expect(model.timerModels.map(\.state) == [.finished, .running, .idle])
+        #expect(model.timerModels[1].remaining == 30)
+        #expect(model.activeTimerID == timers[1].id)
+
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartTests")
+    }
+
+    @Test func groupAutoStartStopsOrRepeatsAfterLastTimer() {
+        let defaults = UserDefaults(suiteName: "TimerGroupAutoStartRepeatTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartRepeatTests")
+        let timers = [TimerPreset(seconds: 60), TimerPreset(seconds: 30)]
+        var group = TimerGroup(timers: timers, autoStartsNextTimer: true)
+        let model = TimerGroupModel(group: group, userDefaults: defaults)
+
+        // Without repeat, the chain ends with the last timer.
+        model.start(timers[1])
+        model.timerModels[1].setProgress(1)
+        #expect(model.timerModels.map(\.state) == [.idle, .finished])
+        #expect(model.activeTimerID == timers[1].id)
+
+        // With repeat, the first timer starts again from its full duration.
+        group.repeatsAfterLastTimer = true
+        model.updateDefinition(group)
+        model.start(timers[1])
+        model.timerModels[1].setProgress(1)
+        #expect(model.timerModels.map(\.state) == [.running, .finished])
+        #expect(model.timerModels[0].remaining == 60)
+        #expect(model.activeTimerID == timers[0].id)
+
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartRepeatTests")
+    }
+
+    @Test func groupWithoutAutoStartDoesNotStartNextTimer() {
+        let defaults = UserDefaults(suiteName: "TimerGroupNoAutoStartTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupNoAutoStartTests")
+        let timers = [TimerPreset(seconds: 60), TimerPreset(seconds: 30)]
+        let model = TimerGroupModel(group: TimerGroup(timers: timers), userDefaults: defaults)
+
+        model.start(timers[0])
+        model.timerModels[0].setProgress(1)
+
+        #expect(model.timerModels.map(\.state) == [.finished, .idle])
+
+        defaults.removePersistentDomain(forName: "TimerGroupNoAutoStartTests")
+    }
+
+    @Test func autoStartedTimerStartsFromItsFullDuration() {
+        let defaults = UserDefaults(suiteName: "TimerGroupAutoStartFullDurationTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartFullDurationTests")
+        let timers = [TimerPreset(seconds: 60), TimerPreset(seconds: 30)]
+        let model = TimerGroupModel(
+            group: TimerGroup(timers: timers, autoStartsNextTimer: true),
+            userDefaults: defaults
+        )
+
+        // Leave the second timer paused halfway, then let the first one run out.
+        model.start(timers[1])
+        model.timerModels[1].setProgress(0.5)
+        model.start(timers[0])
+        #expect(model.timerModels[1].state == .paused)
+        model.timerModels[0].setProgress(1)
+
+        #expect(model.timerModels[1].state == .running)
+        #expect(model.timerModels[1].remaining == 30)
+
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartFullDurationTests")
+    }
+
+    @Test func timerGroupAutoStartFlagsArePersistedAndDuplicated() throws {
+        let defaults = UserDefaults(suiteName: "TimerGroupAutoStartFlagsTests")!
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartFlagsTests")
+
+        // Groups saved before the flags existed decode with both off.
+        let group = TimerGroup(timers: [TimerPreset(seconds: 60)], autoStartsNextTimer: true, repeatsAfterLastTimer: true)
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(group)) as? [String: Any])
+        json["autoStartsNextTimer"] = nil
+        json["repeatsAfterLastTimer"] = nil
+        let legacy = try JSONDecoder().decode(TimerGroup.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(legacy.timers == group.timers)
+        #expect(!legacy.autoStartsNextTimer)
+        #expect(!legacy.repeatsAfterLastTimer)
+
+        let store = TimerGroupsStore(userDefaults: defaults)
+        store.groups = [group]
+        store.duplicate(group)
+        #expect(store.groups[1].autoStartsNextTimer)
+        #expect(store.groups[1].repeatsAfterLastTimer)
+        #expect(TimerGroupsStore(userDefaults: defaults).groups.map(\.repeatsAfterLastTimer) == [true, true])
+
+        defaults.removePersistentDomain(forName: "TimerGroupAutoStartFlagsTests")
+    }
+
     @Test func stopwatchCountsUpAndResets() {
         let defaults = UserDefaults(suiteName: "StopwatchTests")!
         defaults.removePersistentDomain(forName: "StopwatchTests")

@@ -31,6 +31,8 @@ final class TimerModel: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var remaining: TimeInterval = 0
     @Published private(set) var canUndoAdjustment = false
+    /// Fires when a running countdown reaches zero (not when a stopped timer is moved to its end).
+    let didFinish = PassthroughSubject<Void, Never>()
 
     private static let adjustmentUndoDuration: TimeInterval = 10
     private static let defaultSavedStateKey = "timerState"
@@ -379,5 +381,7 @@ final class TimerModel: ObservableObject {
         if AppSettings.timerFinishNotificationsEnabled(in: userDefaults) {
             onFinish(preset)
         }
+        // Last, so this timer is fully finished before a listener starts timers (possibly this one).
+        didFinish.send()
     }
 }

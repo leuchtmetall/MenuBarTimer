@@ -7,4 +7,4 @@ ToDo:
 - Stop timer when computer sleeps (optional)
 - optional audible ticks (when window open / always)
 - save completed cycles / streaks for pomodoros
-- timer groups option: auto-start next timer, then reset and repeat (for pomodoro, etc.)
+- limit window height (scrollable preset list)

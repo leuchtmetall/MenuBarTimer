@@ -10,11 +10,33 @@ nonisolated struct TimerGroup: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
     var timers: [TimerPreset]
+    /// When a running timer reaches zero, the next timer in the group starts from its full duration.
+    var autoStartsNextTimer: Bool
+    /// With `autoStartsNextTimer`, the last timer reaching zero starts the first one again.
+    var repeatsAfterLastTimer: Bool
 
-    init(id: UUID = UUID(), name: String = "Timer Group", timers: [TimerPreset]) {
+    init(
+        id: UUID = UUID(),
+        name: String = "Timer Group",
+        timers: [TimerPreset],
+        autoStartsNextTimer: Bool = false,
+        repeatsAfterLastTimer: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.timers = timers
+        self.autoStartsNextTimer = autoStartsNextTimer
+        self.repeatsAfterLastTimer = repeatsAfterLastTimer
+    }
+
+    /// Groups saved by earlier versions have no auto-start flags; they decode with both off.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        timers = try container.decode([TimerPreset].self, forKey: .timers)
+        autoStartsNextTimer = try container.decodeIfPresent(Bool.self, forKey: .autoStartsNextTimer) ?? false
+        repeatsAfterLastTimer = try container.decodeIfPresent(Bool.self, forKey: .repeatsAfterLastTimer) ?? false
     }
 
     static var example: TimerGroup {
@@ -111,7 +133,9 @@ final class TimerGroupsStore: ObservableObject {
             name: original.name + " Copy",
             timers: original.timers.map {
                 TimerPreset(seconds: $0.seconds, type: $0.type, name: $0.name, colorName: $0.colorName)
-            }
+            },
+            autoStartsNextTimer: original.autoStartsNextTimer,
+            repeatsAfterLastTimer: original.repeatsAfterLastTimer
         )
         groups.insert(copy, at: index + 1)
     }
@@ -205,6 +229,8 @@ final class TimerGroupModel: ObservableObject {
         didSet { saveActiveTimer() }
     }
     private var timerCancellables = Set<AnyCancellable>()
+    /// Set while `start(_:)` pauses the other timers (see `timerDidFinish`).
+    private var isStartingTimer = false
     private let userDefaults: UserDefaults
 
     init(group: TimerGroup, userDefaults: UserDefaults = .standard) {
@@ -243,7 +269,30 @@ final class TimerGroupModel: ObservableObject {
             timer.objectWillChange
                 .sink { [weak self] _ in self?.objectWillChange.send() }
                 .store(in: &timerCancellables)
+            // Looked up by identity when it fires: `updateDefinition` may have reordered `timerModels`.
+            timer.didFinish
+                .sink { [weak self, weak timer] in self?.timerDidFinish(timer) }
+                .store(in: &timerCancellables)
         }
+    }
+
+    /// Starts the timer after the one that just reached zero, if the group auto-starts timers.
+    private func timerDidFinish(_ timer: TimerModel?) {
+        // A timer whose deadline just passed finishes when `start(_:)` pauses it; the user is
+        // starting another timer then, so nothing else should start.
+        guard group.autoStartsNextTimer, !isStartingTimer,
+              let index = timerModels.firstIndex(where: { $0 === timer }) else { return }
+        var nextIndex = index + 1
+        if nextIndex == timerModels.count {
+            guard group.repeatsAfterLastTimer else { return }
+            nextIndex = 0
+        }
+        let next = timerModels[nextIndex]
+        for other in timerModels where other !== next { other.pause() }
+        activeTimerID = next.preset.id
+        // Fresh from its full duration, even if it was paused midway.
+        next.stop()
+        next.start()
     }
 
     /// Applies an edited definition of the same group. The timers may have been reordered, but must be
@@ -265,7 +314,9 @@ final class TimerGroupModel: ObservableObject {
 
     func start(_ definition: TimerPreset) {
         guard let timer = timerModels.first(where: { $0.preset.id == definition.id }) else { return }
+        isStartingTimer = true
         for other in timerModels where other !== timer { other.pause() }
+        isStartingTimer = false
         activeTimerID = definition.id
         timer.primaryButtonTapped()
     }

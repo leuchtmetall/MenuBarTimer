@@ -48,6 +48,14 @@ struct TimerGroupEditor: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
+            Group {
+                Toggle("Auto-start next timer", isOn: flagBinding(\.autoStartsNextTimer))
+                Toggle("Repeat after last timer", isOn: flagBinding(\.repeatsAfterLastTimer))
+                    .disabled(!(currentGroup?.autoStartsNextTimer ?? false))
+            }
+            .toggleStyle(.checkbox)
+            .font(.caption)
+            .controlSize(.small)
         }
         .onDisappear { reorderer.reset() }
         .onChange(of: isExpanded) { reorderer.reset() }
@@ -87,6 +95,16 @@ struct TimerGroupEditor: View {
             get: { currentGroup?.name ?? "" },
             set: { newName in
                 groupsStore.updateGroup(id: group.id) { $0.name = newName }
+            }
+        )
+    }
+
+    /// Binds one of the group's options, reading and writing the store's current copy.
+    private func flagBinding(_ keyPath: WritableKeyPath<TimerGroup, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { currentGroup?[keyPath: keyPath] ?? false },
+            set: { newValue in
+                groupsStore.updateGroup(id: group.id) { $0[keyPath: keyPath] = newValue }
             }
         )
     }
