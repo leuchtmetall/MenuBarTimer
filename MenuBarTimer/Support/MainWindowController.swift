@@ -12,13 +12,22 @@ import SwiftUI
 /// outside it and can't be moved. The panel stays open until it is toggled or closed, keeps the
 /// position the user dragged it to, and floats above other apps' windows unless the user turned
 /// that off (`AppSettings.keepPanelOnTop`).
+///
+/// The panel's width follows the content; its height is the user's, who can resize it vertically
+/// (persisted via `AppSettings.panelHeight(in:)`). The presets list scrolls within it.
 @MainActor
-final class MainWindowController: NSObject {
+final class MainWindowController: NSObject, NSWindowDelegate {
     private var panel: MainPanel?
     private var hostingController: NSViewController?
+    /// The content's size for a proposed size (`NSHostingController.sizeThatFits(in:)`).
+    private var measureContent: ((CGSize) -> CGSize)?
     private weak var statusButton: NSStatusBarButton?
     private var makeContent: (() -> AnyView)?
     private var hasBeenPositioned = false
+    /// The content's minimum height, measured when a live resize starts.
+    private var minimumHeight: CGFloat = 0
+    /// Space kept between the panel and the screen's visible edges.
+    private let screenGap: CGFloat = 6
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -114,7 +123,10 @@ final class MainWindowController: NSObject {
         // hosting controller as well ends in a resize/layout loop.
         hostingController.sizingOptions = []
         self.hostingController = hostingController
-        let initialSize = hostingController.sizeThatFits(in: CGSize(width: CGFloat.infinity, height: .infinity))
+        measureContent = { [unowned hostingController] in hostingController.sizeThatFits(in: $0) }
+        let initialSize = hostingController.sizeThatFits(
+            in: CGSize(width: CGFloat.infinity, height: clampedToScreen(AppSettings.panelHeight(in: .standard), of: statusButton?.window?.screen))
+        )
 
         // A hosting view that is the window's content view resizes the window itself after layout,
         // keeping the left edge fixed. Wrapped in a plain container it just fills the container.
@@ -126,11 +138,13 @@ final class MainWindowController: NSObject {
 
         let panel = MainPanel(
             contentRect: CGRect(origin: .zero, size: initialSize),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: true
         )
         panel.contentView = container
+        panel.delegate = self
+        lockWidth(of: panel, to: initialSize.width)
         panel.onCancel = { [weak self] in self?.hide() }
         panel.onSwipeDismiss = { [weak self] in self?.hide() }
         // The level is set by `applyWindowLevel()` when the panel is shown.
@@ -147,14 +161,49 @@ final class MainWindowController: NSObject {
     /// Fits the panel to the SwiftUI content, keeping its top-right corner in place: it grows downward
     /// like the popover did, and the presets list on the right stays put when the timer side changes.
     ///
+    /// The content's width is its own, and its height is the window's unless the content needs more
+    /// (e.g. a group's timers in a short window), so the height only grows, to the content's minimum.
+    ///
     /// Runs synchronously in the layout pass that measured the new size, so the window and its content
     /// change in the same frame instead of the content briefly showing at the old window size. This
-    /// can't loop: the content is `fixedSize`, so the window's size doesn't feed back into it.
+    /// can't loop: the content's width doesn't depend on the window, and at the new height the content
+    /// reports that same height.
     private func resizePanel(to size: CGSize) {
         guard let panel, size.width > 0, size.height > 0, panel.frame.size != size else { return }
         let frame = panel.frame
+        lockWidth(of: panel, to: size.width)
         panel.setFrame(CGRect(x: frame.maxX - size.width, y: frame.maxY - size.height, width: size.width, height: size.height), display: true)
         // The shadow follows the content's rounded shape, which just changed.
+        panel.invalidateShadow()
+    }
+
+    /// Lets the user resize the panel only vertically. `setFrame` ignores these limits, so the width
+    /// can still follow the content.
+    private func lockWidth(of panel: NSPanel, to width: CGFloat) {
+        panel.minSize = CGSize(width: width, height: 0)
+        panel.maxSize = CGSize(width: width, height: .greatestFiniteMagnitude)
+    }
+
+    private func clampedToScreen(_ height: CGFloat, of screen: NSScreen?) -> CGFloat {
+        guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return height }
+        return min(height, visible.height - 2 * screenGap)
+    }
+
+    // MARK: NSWindowDelegate
+
+    func windowWillStartLiveResize(_ notification: Notification) {
+        // Measured here rather than while SwiftUI lays out, which is where `resizePanel` runs.
+        minimumHeight = measureContent?(CGSize(width: CGFloat.infinity, height: 0)).height ?? 0
+    }
+
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let height = clampedToScreen(frameSize.height, of: sender.screen)
+        return NSSize(width: sender.frame.width, height: max(height, minimumHeight))
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let panel else { return }
+        AppSettings.setPanelHeight(panel.frame.height, in: .standard)
         panel.invalidateShadow()
     }
 
@@ -164,7 +213,7 @@ final class MainWindowController: NSObject {
         let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         let screen = buttonWindow.screen ?? NSScreen.main
         let size = panel.frame.size
-        let gap: CGFloat = 6
+        let gap = screenGap
 
         var origin = CGPoint(x: buttonFrame.midX - size.width / 2, y: buttonFrame.minY - gap - size.height)
         if let visible = screen?.visibleFrame {

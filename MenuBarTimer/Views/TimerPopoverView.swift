@@ -19,7 +19,8 @@ struct TimerPopoverView: View {
             Divider()
             PresetsListView(timerModel: timerModel, presetsStore: presetsStore, groupsStore: groupsStore, groupCoordinator: groupCoordinator)
         }
-        .fixedSize()
+        // The width is the content's own; the height is the window's, which the user can resize.
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

@@ -10,7 +10,8 @@ import SwiftUI
 /// popover, plus a close button in the top-left corner.
 struct MainWindowView<Content: View>: View {
     let onClose: () -> Void
-    /// Reports the content's natural size, which the window is fitted to.
+    /// Reports the content's size: its natural width, and the window's height (or the content's
+    /// minimum height, if the window is shorter). The window is fitted to it.
     let onSizeChange: (CGSize) -> Void
     @ViewBuilder let content: Content
 
@@ -37,7 +38,7 @@ struct MainWindowView<Content: View>: View {
                 }
             }
             .onExitCommand(perform: onClose)
-            .fixedSize()
+            .fixedSize(horizontal: true, vertical: false)
             .onGeometryChange(for: CGSize.self) { $0.size } action: { onSizeChange($0) }
             .modifier(TopTrailingPinned())
     }
@@ -81,18 +82,25 @@ private struct TopTrailingPinned: ViewModifier {
     }
 }
 
+///
+/// The content always gets its natural width and the proposed height, which is the window's.
 private struct TopTrailingLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let childSize = subviews.first?.sizeThatFits(.unspecified) ?? .zero
         // Fill a concrete proposal (the hosting view's bounds); otherwise, e.g. when the panel
-        // measures its initial size, report the content's own size.
-        guard let width = proposal.width, let height = proposal.height,
-              width.isFinite, height.isFinite else { return childSize }
-        return CGSize(width: width, height: height)
+        // measures its initial or minimum size, report the content's own size at that height.
+        if let width = proposal.width, let height = proposal.height, width.isFinite, height.isFinite {
+            return CGSize(width: width, height: height)
+        }
+        let height = proposal.height.flatMap { $0.isFinite ? $0 : nil }
+        return subviews.first?.sizeThatFits(ProposedViewSize(width: nil, height: height)) ?? .zero
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews.first?.place(at: CGPoint(x: bounds.maxX, y: bounds.minY), anchor: .topTrailing, proposal: .unspecified)
+        subviews.first?.place(
+            at: CGPoint(x: bounds.maxX, y: bounds.minY),
+            anchor: .topTrailing,
+            proposal: ProposedViewSize(width: nil, height: bounds.height)
+        )
     }
 }
 

@@ -27,6 +27,8 @@ struct PresetsListView: View {
     static let width: CGFloat = 280
     /// The list's width in expanded edit mode, which gives the group editor's name fields more room.
     static let expandedWidth: CGFloat = 400
+    /// About three rows (24pt tall, 8pt apart).
+    private static let minimumListHeight: CGFloat = 88
 
     private var columnWidth: CGFloat {
         isEditing && isEditExpanded ? Self.expandedWidth : Self.width
@@ -80,6 +82,9 @@ struct PresetsListView: View {
                 // Inset the content by the ring's width and widen the scroll view by the same amount.
                 .padding(Self.focusRingInset)
             }
+            // The list scrolls within the window's height; shrinking the window always leaves a few
+            // rows visible.
+            .frame(minHeight: Self.minimumListHeight)
             .padding(-Self.focusRingInset)
         }
         .padding(24)

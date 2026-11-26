@@ -327,6 +327,18 @@ struct MenuBarTimerTests {
         defaults.removePersistentDomain(forName: "KeepPanelOnTopSettingTests")
     }
 
+    @Test func panelHeightDefaultsAndIsPersisted() {
+        let defaults = UserDefaults(suiteName: "PanelHeightTests")!
+        defaults.removePersistentDomain(forName: "PanelHeightTests")
+
+        #expect(AppSettings.panelHeight(in: defaults) == AppSettings.defaultPanelHeight)
+
+        AppSettings.setPanelHeight(512, in: defaults)
+        #expect(AppSettings.panelHeight(in: defaults) == 512)
+
+        defaults.removePersistentDomain(forName: "PanelHeightTests")
+    }
+
     @Test func swipeToDismissSettingDefaultsOnAndIsPersisted() {
         let defaults = UserDefaults(suiteName: "SwipeToDismissSettingTests")!
         defaults.removePersistentDomain(forName: "SwipeToDismissSettingTests")

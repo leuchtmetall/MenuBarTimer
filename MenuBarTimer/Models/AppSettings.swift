@@ -108,6 +108,7 @@ final class AppSettings: ObservableObject {
     static let timerFinishNotificationKey = "showTimerFinishNotification"
     static let swipeToDismissKey = "swipeToDismissPanel"
     static let keepPanelOnTopKey = "keepPanelOnTop"
+    static let panelHeightKey = "panelHeight"
     private let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
@@ -149,6 +150,22 @@ final class AppSettings: ObservableObject {
     /// Read directly by `MainWindowController`, which has no access to the `AppSettings` environment object.
     static func keepPanelOnTopEnabled(in userDefaults: UserDefaults) -> Bool {
         bool(keepPanelOnTopKey, default: true, in: userDefaults)
+    }
+
+    /// The main panel's height when the user hasn't resized it yet.
+    static let defaultPanelHeight: CGFloat = 440
+
+    /// The main panel's height as the user last resized it, or `defaultPanelHeight`. Read and written
+    /// directly by `MainWindowController`; not part of the Settings UI.
+    static func panelHeight(in userDefaults: UserDefaults) -> CGFloat {
+        guard let height = userDefaults.object(forKey: panelHeightKey) as? Double, height > 0 else {
+            return defaultPanelHeight
+        }
+        return CGFloat(height)
+    }
+
+    static func setPanelHeight(_ height: CGFloat, in userDefaults: UserDefaults) {
+        userDefaults.set(Double(height), forKey: panelHeightKey)
     }
 
     /// A stored flag, or `defaultValue` while the user hasn't set it (`bool(forKey:)` can't tell an
